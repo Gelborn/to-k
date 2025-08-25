@@ -14,7 +14,6 @@ export const Input: React.FC<InputProps> = ({
   return (
     <div className="space-y-1">
       {label && (
-        <label className="block text-sm font-semibold text-gray-300 uppercase tracking-widest">
         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-widest">
           {label}
         </label>
@@ -34,7 +33,5 @@ export const Input: React.FC<InputProps> = ({
         <p className="text-red-600 dark:text-red-400 text-sm font-medium">{error}</p>
       )}
     </div>
-      );
-    };
-  )
-}
+  );
+};
