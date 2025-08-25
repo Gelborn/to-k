@@ -95,6 +95,7 @@ export const AccountsPage: React.FC = () => {
           </table>
         </div>
       </div>
+      </div>
 
       {accounts.length === 0 && (
         <div className="text-center py-12">
