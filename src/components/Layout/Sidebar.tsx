@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, FolderOpen, Tag, Users, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, Tag, Users, LogOut, X, User } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 const navigation = [
@@ -17,7 +17,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -35,16 +35,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       
       {/* Sidebar */}
       <div className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-64 bg-gray-900/95 backdrop-blur-xl border-r border-gray-800/50 
+        fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800/50 
         transform transition-transform duration-300 ease-in-out lg:transform-none
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         flex flex-col min-h-screen
       `}>
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-800/50">
-          <h1 className="text-xl font-bold text-gray-100 tracking-tight">tok</h1>
+        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800/50">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">tok</h1>
           <button
             onClick={onToggle}
-            className="lg:hidden p-2 text-gray-400 hover:text-gray-100 hover:bg-gray-800 rounded-lg transition-colors"
+            className="lg:hidden p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -63,8 +63,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                 className={`
                   group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200
                   ${isActive 
-                    ? 'bg-gray-800/80 text-gray-100 shadow-lg' 
-                    : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-100'
+                    ? 'bg-gray-100 dark:bg-gray-800/80 text-gray-900 dark:text-gray-100 shadow-lg' 
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
                   }
                 `}
               >
@@ -74,6 +74,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
             );
           })}
         </nav>
+        
+        {/* User info and logout */}
+        <div className="p-3 border-t border-gray-200 dark:border-gray-800/50">
+          <div className="flex items-center px-3 py-2 mb-2">
+            <div className="p-2 bg-gray-100 dark:bg-gray-800/50 rounded-lg mr-3">
+              <User className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Logado como
+              </p>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                {user?.email}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center px-3 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100 rounded-xl transition-all duration-200"
+          >
+            <LogOut className="w-5 h-5 mr-3 transition-colors" />
+            Sair
+          </button>
+        </div>
       </div>
     </>
   );

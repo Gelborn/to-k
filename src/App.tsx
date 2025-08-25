@@ -2,6 +2,7 @@ import React from 'react';
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjectsPage } from './pages/ProjectsPage';
@@ -16,7 +17,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
         <div className="text-gray-400">Loading...</div>
       </div>
     );
@@ -29,9 +30,9 @@ const AppLayout: React.FC<{ children: React.ReactNode; title: string }> = ({ chi
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-gray-950">
+    <div className="flex min-h-screen bg-white dark:bg-gray-950">
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
-      <div className="flex-1 lg:ml-0">
+      <div className="flex-1">
         <Header title={title} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
         <main>{children}</main>
       </div>
@@ -44,13 +45,14 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
         <div className="text-gray-400">Loading...</div>
       </div>
     );
   }
 
   return (
+    <ThemeProvider>
     <Router>
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
@@ -107,6 +109,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
+    </ThemeProvider>
   );
 }
 
