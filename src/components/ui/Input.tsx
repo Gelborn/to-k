@@ -34,5 +34,7 @@ export const Input: React.FC<InputProps> = ({
         <p className="text-red-600 dark:text-red-400 text-sm font-medium">{error}</p>
       )}
     </div>
-  );
-};
+      );
+    };
+  )
+}
