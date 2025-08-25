@@ -44,9 +44,9 @@ export const ProjectsPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-gray-50 dark:bg-gray-950 min-h-screen">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-100">Projects</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Projects</h1>
         <Button onClick={() => setIsModalOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
           New Project
@@ -61,7 +61,7 @@ export const ProjectsPage: React.FC = () => {
 
       {projects.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-gray-400">No projects found. Create your first project to get started.</p>
+          <p className="text-gray-600 dark:text-gray-400">No projects found. Create your first project to get started.</p>
         </div>
       )}
 

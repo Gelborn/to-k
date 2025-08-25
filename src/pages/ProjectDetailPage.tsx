@@ -84,30 +84,30 @@ export const ProjectDetailPage: React.FC = () => {
   ];
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-gray-50 dark:bg-gray-950 min-h-screen">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center space-x-4">
           <Link
             to="/projects"
-            className="p-2 text-gray-400 hover:text-gray-100 hover:bg-gray-800/50 rounded-xl transition-all duration-200"
+            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-200"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-100 tracking-tight">{project.name}</h1>
-            <p className="text-gray-400 font-medium mt-1">{project.description}</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{project.name}</h1>
+            <p className="text-gray-600 dark:text-gray-400 font-medium mt-1">{project.description}</p>
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <span className="inline-flex px-3 py-1.5 text-xs font-semibold text-gray-300 bg-gray-800/50 rounded-full border border-gray-700/50">
+          <span className="inline-flex px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800/50 rounded-full border border-gray-300 dark:border-gray-700/50">
             {project.type.replace('_', ' ')}
           </span>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-800/50">
+      <div className="border-b border-gray-200 dark:border-gray-800/50">
         <nav className="flex space-x-8 overflow-x-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -119,8 +119,8 @@ export const ProjectDetailPage: React.FC = () => {
                 className={`
                   flex items-center space-x-2 py-4 px-1 border-b-2 font-semibold text-sm transition-all duration-200 whitespace-nowrap
                   ${isActive
-                    ? 'border-white text-gray-100'
-                    : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
+                    ? 'border-gray-900 dark:border-white text-gray-900 dark:text-gray-100'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:border-gray-400 dark:hover:border-gray-600'
                   }
                 `}
               >

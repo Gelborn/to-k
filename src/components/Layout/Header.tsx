@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({ title, onMenuToggle }) => {
 
   return (
     <header className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800/50 px-4 sm:px-6 h-16 flex items-center sticky top-0 z-30">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center">
         <div className="flex items-center">
           <button
             onClick={onMenuToggle}
@@ -30,8 +30,9 @@ export const Header: React.FC<HeaderProps> = ({ title, onMenuToggle }) => {
           </button>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight ml-2">{title}</h1>
         </div>
-        
-        <div className="flex items-center space-x-4">
+      </div>
+      
+      <div className="flex items-center space-x-4">
           <button 
             onClick={toggleTheme}
             className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-200"
@@ -80,7 +81,6 @@ export const Header: React.FC<HeaderProps> = ({ title, onMenuToggle }) => {
             )}
           </div>
         </div>
-      </div>
     </header>
   );
 };

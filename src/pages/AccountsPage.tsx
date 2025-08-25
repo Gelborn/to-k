@@ -31,15 +31,14 @@ export const AccountsPage: React.FC = () => {
   ];
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-gray-50 dark:bg-gray-950 min-h-screen">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-100">Accounts</h1>
-        <div className="text-sm text-gray-400">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Accounts</h1>
+        <div className="text-sm text-gray-600 dark:text-gray-400">
           Total: {accounts.length} accounts
         </div>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
       <div className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-lg overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -67,11 +66,11 @@ export const AccountsPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <Users className="w-4 h-4 text-gray-500 mr-2" />
+                      <Users className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2" />
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                         account.type === 'owner' 
                           ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800' 
-                          : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-400 dark:border-gray-700'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700'
                       }`}>
                         {account.type}
                       </span>
@@ -79,13 +78,13 @@ export const AccountsPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center text-sm text-gray-800 dark:text-gray-100">
-                      <FolderOpen className="w-4 h-4 text-gray-500 mr-2" />
+                      <FolderOpen className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2" />
                       {account.projects}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                      <Calendar className="w-4 h-4 mr-2" />
+                      <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
                       {new Date(account.created_at).toLocaleDateString()}
                     </div>
                   </td>
@@ -95,11 +94,10 @@ export const AccountsPage: React.FC = () => {
           </table>
         </div>
       </div>
-      </div>
 
       {accounts.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-gray-400">No accounts found.</p>
+          <p className="text-gray-600 dark:text-gray-400">No accounts found.</p>
         </div>
       )}
     </div>

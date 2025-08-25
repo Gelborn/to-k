@@ -56,52 +56,52 @@ export const TagsPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-gray-50 dark:bg-gray-950 min-h-screen">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-100">Tags</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Tags</h1>
         <Button onClick={() => setIsModalOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
           New Tag
         </Button>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-800">
+            <thead className="bg-gray-100 dark:bg-gray-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   Tag ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   Project
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   Created
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
               {tags.map((tag) => (
-                <tr key={tag.id} className="hover:bg-gray-800/50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                <tr key={tag.id} className="hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-300">
                     {tag.id}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <Hash className="w-4 h-4 text-gray-500 mr-2" />
-                      <span className="text-sm text-gray-100">{tag.tagId}</span>
+                      <Hash className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2" />
+                      <span className="text-sm text-gray-900 dark:text-gray-100">{tag.tagId}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                     {tag.project?.name || 'Unknown Project'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center text-sm text-gray-400">
-                      <Calendar className="w-4 h-4 mr-2" />
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                      <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
                       {new Date(tag.created_at).toLocaleDateString()}
                     </div>
                   </td>
@@ -114,7 +114,7 @@ export const TagsPage: React.FC = () => {
 
       {tags.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-gray-400">No tags found. Create your first tag to get started.</p>
+          <p className="text-gray-600 dark:text-gray-400">No tags found. Create your first tag to get started.</p>
         </div>
       )}
 
@@ -129,13 +129,13 @@ export const TagsPage: React.FC = () => {
           />
 
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-300 uppercase tracking-wider">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
               Project
             </label>
             <select
               value={newTag.project_id}
               onChange={(e) => setNewTag({ ...newTag, project_id: e.target.value })}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
               <option value="">Select a project</option>
