@@ -17,7 +17,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
         <div className="text-gray-400">Loading...</div>
       </div>
     );
@@ -29,8 +29,20 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AppLayout: React.FC<{ children: React.ReactNode; title: string }> = ({ children, title }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = () => {
+      setSidebarOpen(false);
+    };
+    
+    if (sidebarOpen) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [sidebarOpen]);
+
   return (
-    <div className="flex min-h-screen bg-white dark:bg-gray-950">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       <div className="flex-1">
         <Header title={title} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
@@ -45,7 +57,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
         <div className="text-gray-400">Loading...</div>
       </div>
     );
