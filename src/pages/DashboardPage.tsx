@@ -41,7 +41,7 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
-        <div className="bg-white dark:bg-gray-900/50 backdrop-blur-sm border border-gray-200 dark:border-gray-800/50 rounded-2xl p-6 animate-fade-in">
+        <div className="bg-white dark:bg-gray-900/50 backdrop-blur-sm border border-gray-300 dark:border-gray-800/50 rounded-2xl p-6 animate-fade-in shadow-sm">
           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6 tracking-tight">Recent Activity</h3>
           <div className="space-y-4">
             {[
@@ -49,21 +49,21 @@ export const DashboardPage: React.FC = () => {
               { action: 'Tag added to profile', time: '4 hours ago', type: 'tag' },
               { action: 'User account created', time: '6 hours ago', type: 'account' },
             ].map((activity, index) => (
-              <div key={index} className="flex items-center justify-between py-3 px-4 bg-gray-50 dark:bg-gray-800/30 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
+              <div key={index} className="flex items-center justify-between py-3 px-4 bg-gray-100 dark:bg-gray-800/30 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-800/50 transition-colors">
                 <div className="flex items-center">
                   <div className={`w-3 h-3 rounded-full mr-4 ${
                     activity.type === 'project' ? 'bg-blue-400' :
                     activity.type === 'tag' ? 'bg-green-400' : 'bg-purple-400'
                   }`} />
-                  <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">{activity.action}</span>
+                  <span className="text-gray-800 dark:text-gray-300 text-sm font-medium">{activity.action}</span>
                 </div>
-                <span className="text-gray-500 text-xs font-medium">{activity.time}</span>
+                <span className="text-gray-600 text-xs font-medium">{activity.time}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-900/50 backdrop-blur-sm border border-gray-200 dark:border-gray-800/50 rounded-2xl p-6 animate-fade-in">
+        <div className="bg-white dark:bg-gray-900/50 backdrop-blur-sm border border-gray-300 dark:border-gray-800/50 rounded-2xl p-6 animate-fade-in shadow-sm">
           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6 tracking-tight">System Status</h3>
           <div className="space-y-4">
             {[
@@ -71,11 +71,11 @@ export const DashboardPage: React.FC = () => {
               { service: 'Database', status: 'operational' },
               { service: 'File Storage', status: 'operational' },
             ].map((service, index) => (
-              <div key={index} className="flex items-center justify-between py-3 px-4 bg-gray-50 dark:bg-gray-800/30 rounded-xl">
-                <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">{service.service}</span>
+              <div key={index} className="flex items-center justify-between py-3 px-4 bg-gray-100 dark:bg-gray-800/30 rounded-xl">
+                <span className="text-gray-800 dark:text-gray-300 text-sm font-medium">{service.service}</span>
                 <span className="flex items-center">
                   <div className="w-3 h-3 bg-green-400 rounded-full mr-3 animate-pulse" />
-                  <span className="text-green-400 text-xs font-semibold capitalize tracking-wider">{service.status}</span>
+                  <span className="text-green-500 text-xs font-semibold capitalize tracking-wider">{service.status}</span>
                 </span>
               </div>
             ))}

@@ -40,28 +40,29 @@ export const AccountsPage: React.FC = () => {
       </div>
 
       <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-lg overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-800">
+            <thead className="bg-gray-100 dark:bg-gray-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   Projects
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                   Created At
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
               {accounts.map((account) => (
-                <tr key={account.id} className="hover:bg-gray-800/50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                <tr key={account.id} className="hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-300">
                     {account.id}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -69,21 +70,21 @@ export const AccountsPage: React.FC = () => {
                       <Users className="w-4 h-4 text-gray-500 mr-2" />
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                         account.type === 'owner' 
-                          ? 'bg-blue-900/50 text-blue-300 border border-blue-800' 
-                          : 'bg-gray-800 text-gray-300 border border-gray-700'
+                          ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800' 
+                          : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-400 dark:border-gray-700'
                       }`}>
                         {account.type}
                       </span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center text-sm text-gray-100">
+                    <div className="flex items-center text-sm text-gray-800 dark:text-gray-100">
                       <FolderOpen className="w-4 h-4 text-gray-500 mr-2" />
                       {account.projects}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center text-sm text-gray-400">
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                       <Calendar className="w-4 h-4 mr-2" />
                       {new Date(account.created_at).toLocaleDateString()}
                     </div>

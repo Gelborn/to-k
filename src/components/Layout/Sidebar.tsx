@@ -41,7 +41,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         flex flex-col min-h-screen
       `}>
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800/50">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">tok</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+            tok <span className="text-gray-500 dark:text-gray-400 font-normal">| admin</span>
+          </h1>
           <button
             onClick={onToggle}
             className="lg:hidden p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
@@ -75,29 +77,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
           })}
         </nav>
         
-        {/* User info and logout */}
-        <div className="p-3 border-t border-gray-200 dark:border-gray-800/50">
-          <div className="flex items-center px-3 py-2 mb-2">
-            <div className="p-2 bg-gray-100 dark:bg-gray-800/50 rounded-lg mr-3">
-              <User className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Logado como
-              </p>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                {user?.email}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleSignOut}
-            className="w-full flex items-center px-3 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100 rounded-xl transition-all duration-200"
-          >
-            <LogOut className="w-5 h-5 mr-3 transition-colors" />
-            Sair
-          </button>
-        </div>
+        {/* Empty space for better layout */}
+        <div className="flex-1"></div>
       </div>
     </>
   );
