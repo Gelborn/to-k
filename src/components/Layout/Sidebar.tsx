@@ -42,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       `}>
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800/50">
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-            tok <span className="text-gray-500 dark:text-gray-400 font-normal">| admin</span>
+            tok.io <span className="text-gray-500 dark:text-gray-400 font-extralight"> |  admin</span>
           </h1>
           <button
             onClick={onToggle}

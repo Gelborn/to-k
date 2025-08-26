@@ -31,10 +31,12 @@ export const LoginPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col p-4 animate-fade-in">
       {/* Logo no topo esquerdo */}
       <div className="absolute top-6 left-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">tok</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+            tok.io <span className="text-gray-500 dark:text-gray-400 font-extralight"> |  admin</span>
+          </h1>
       </div>
       
-      <div className="absolute top-4 right-4 text-sm text-gray-400 font-medium tracking-wider">
+      <div className="absolute top-4 right-4 text-sm text-gray-400 font-light tracking-wider">
         ADMIN ACCESS
       </div>
       
