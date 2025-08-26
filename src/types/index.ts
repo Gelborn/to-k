@@ -59,3 +59,41 @@ export interface DashboardStats {
   accountsTrend: 'up' | 'down' | 'flat';
   activeUsersTrend: 'up' | 'down' | 'flat';
 }
+
+export interface Resource {
+  id: string;
+  project_id: string;
+  type: 'video' | 'playlist' | 'doc' | 'blog_post';
+  name: string;
+  description?: string;
+  content?: string; // For blog posts
+  url?: string; // For videos, playlists, docs
+  image_url?: string; // For blog posts
+  category?: string; // For blog posts
+  author_name?: string; // For blog posts
+  author_description?: string; // For blog posts
+  author_profile_pic?: string; // For blog posts
+  access_type: 'public' | 'private';
+  required_assets?: string[]; // Asset IDs required for private access
+  created_at: string;
+}
+
+export interface ProfileCardSettings {
+  id: string;
+  project_id: string;
+  allow_bio: boolean;
+  allowed_social_media: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const SOCIAL_MEDIA_OPTIONS = [
+  { id: 'instagram', name: 'Instagram', icon: 'Instagram' },
+  { id: 'twitter', name: 'Twitter/X', icon: 'Twitter' },
+  { id: 'linkedin', name: 'LinkedIn', icon: 'Linkedin' },
+  { id: 'facebook', name: 'Facebook', icon: 'Facebook' },
+  { id: 'youtube', name: 'YouTube', icon: 'Youtube' },
+  { id: 'tiktok', name: 'TikTok', icon: 'Music' },
+  { id: 'github', name: 'GitHub', icon: 'Github' },
+  { id: 'website', name: 'Website', icon: 'Globe' },
+] as const;

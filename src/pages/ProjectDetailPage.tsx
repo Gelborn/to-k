@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Package, Tag, Settings, Trash2, Edit3, Copy, QrCode } from 'lucide-react';
+import { ArrowLeft, Plus, Package, Tag, Settings, Trash2, Edit3, Copy, QrCode, Folder } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import { Asset, ProjectTag } from '../types';
+import { ExclusiveClubResources } from '../components/Resources/ExclusiveClubResources';
+import { ProfileCardResources } from '../components/Resources/ProfileCardResources';
 
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [activeTab, setActiveTab] = useState<'assets' | 'tags' | 'settings'>('assets');
+  const [activeTab, setActiveTab] = useState<'assets' | 'tags' | 'resources' | 'settings'>('assets');
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [newAsset, setNewAsset] = useState({ name: '', description: '', type: 'unique' as 'unique' | 'generic' });
@@ -80,6 +82,7 @@ export const ProjectDetailPage: React.FC = () => {
   const tabs = [
     { id: 'assets', label: 'Assets', icon: Package },
     { id: 'tags', label: 'Tags', icon: Tag },
+    { id: 'resources', label: 'Resources', icon: Folder },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -290,6 +293,26 @@ export const ProjectDetailPage: React.FC = () => {
                   </table>
                 </div>
               </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'resources' && (
+          <div>
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight mb-2">Project Resources</h2>
+              <p className="text-gray-600 dark:text-gray-400 font-medium">
+                {project.type === 'exclusive_club' 
+                  ? 'Manage content and access controls for your exclusive club members'
+                  : 'Configure profile card settings and allowed social media connections'
+                }
+              </p>
+            </div>
+
+            {project.type === 'exclusive_club' ? (
+              <ExclusiveClubResources projectId={project.id} assets={assets} />
+            ) : (
+              <ProfileCardResources projectId={project.id} />
             )}
           </div>
         )}
