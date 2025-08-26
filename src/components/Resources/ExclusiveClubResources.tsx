@@ -327,11 +327,11 @@ export const ExclusiveClubResources: React.FC<ExclusiveClubResourcesProps> = ({ 
       </div>
 
       {/* Content */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex items-center justify-between">
         <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
           {resourceTypes.find(t => t.id === activeResourceType)?.label}
         </h3>
-        <Button onClick={() => setIsModalOpen(true)}>
+        <Button onClick={() => setIsModalOpen(true)} className="whitespace-nowrap">
           <Plus className="w-4 h-4 mr-2" />
           Add {resourceTypes.find(t => t.id === activeResourceType)?.label.slice(0, -1)}
         </Button>

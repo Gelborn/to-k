@@ -21,7 +21,7 @@ export const ProjectDetailPage: React.FC = () => {
     id: id || '1',
     name: 'Company Profile',
     description: 'Main company profile with team information and project showcase',
-    type: 'profile_card' as const,
+    type: 'exclusive_club' as const,
     owners: ['user1', 'user2'],
     created_at: '2024-01-15T10:00:00Z',
   };
@@ -137,9 +137,9 @@ export const ProjectDetailPage: React.FC = () => {
       <div className="animate-fade-in">
         {activeTab === 'assets' && (
           <div>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">Project Assets</h2>
-              <Button onClick={() => setIsAssetModalOpen(true)}>
+              <Button onClick={() => setIsAssetModalOpen(true)} className="whitespace-nowrap">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Asset
               </Button>
@@ -204,9 +204,9 @@ export const ProjectDetailPage: React.FC = () => {
 
         {activeTab === 'tags' && (
           <div>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">Project Tags</h2>
-              <Button onClick={() => setIsTagModalOpen(true)}>
+              <Button onClick={() => setIsTagModalOpen(true)} className="whitespace-nowrap">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Tag
               </Button>
