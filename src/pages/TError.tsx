@@ -58,7 +58,6 @@ export default function TError() {
     <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-zinc-100 flex items-center justify-center p-6">
       <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-8 shadow-xl">
         <div className="flex items-center gap-3">
-          <img src="/logo.svg" alt="to-k" className="h-6 w-auto opacity-90" />
           <span className="text-xs uppercase tracking-[0.2em] text-zinc-400">tag redirect</span>
         </div>
 
