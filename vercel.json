@@ -1,10 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    {
-      "source": "/t/(.*)",
-      "destination": "https://enwuiduvnulzkybrctqr.supabase.co/functions/v1/redirect/$1"
-    }
+    { "source": "/t/(.*)", "destination": "https://enwuiduvnulzkybrctqr.supabase.co/functions/v1/redirect/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
