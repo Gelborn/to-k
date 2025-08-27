@@ -13,6 +13,9 @@ import { Sidebar } from './components/Layout/Sidebar';
 import { Header } from './components/Layout/Header';
 import { Toaster } from 'react-hot-toast';
 
+// NEW: branded error page for tag redirects
+import TError from './pages/TError';
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
   
@@ -30,7 +33,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AppLayout: React.FC<{ children: React.ReactNode; title: string }> = ({ children, title }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Optional: close on route changes or overlay from Header/Sidebar; for now, keep simple.
   React.useEffect(() => {
     const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setSidebarOpen(false); };
     window.addEventListener('keydown', onEsc);
@@ -63,7 +65,12 @@ function App() {
     <ThemeProvider>
       <Router>
         <Routes>
+          {/* PUBLIC routes */}
           <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
+          {/* NEW: public branded error route for failed tag redirects */}
+          <Route path="/t-error" element={<TError />} />
+
+          {/* PROTECTED routes */}
           <Route
             path="/"
             element={
@@ -114,7 +121,9 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/" />} />
+
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
         </Routes>
       </Router>
 
