@@ -28,7 +28,7 @@ export const LoginPage: React.FC = () => {
       {/* Logo */}
       <div className="absolute top-6 left-6">
         <a href="/" className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight hover:text-blue-500 transition-colors">
-          tok.io <span className="text-gray-500 dark:text-gray-400 font-extralight"> | admin</span>
+          tok chip <span className="text-gray-500 dark:text-gray-400 font-extralight"> | admin</span>
         </a>
       </div>
 
@@ -47,7 +47,7 @@ export const LoginPage: React.FC = () => {
               <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-tight">
                 Welcome back
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 font-medium">Sign in to to-k.io Admin</p>
+              <p className="text-gray-600 dark:text-gray-400 font-medium">Sign in to to-k.chip Admin</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -116,7 +116,7 @@ export const LoginPage: React.FC = () => {
 
       {/* Footer */}
       <div className="absolute bottom-4 w-full text-center text-xs text-gray-400">
-        Made with ♥ by to-k.io
+        Made with ♥ by to-k.chip
       </div>
     </div>
   );

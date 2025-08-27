@@ -11,6 +11,7 @@ import { TagsPage } from './pages/TagsPage';
 import { AccountsPage } from './pages/AccountsPage';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Header } from './components/Layout/Header';
+import { Toaster } from 'react-hot-toast';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -29,24 +30,19 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AppLayout: React.FC<{ children: React.ReactNode; title: string }> = ({ children, title }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Close dropdown when clicking outside
+  // Optional: close on route changes or overlay from Header/Sidebar; for now, keep simple.
   React.useEffect(() => {
-    const handleClickOutside = () => {
-      setSidebarOpen(false);
-    };
-    
-    if (sidebarOpen) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [sidebarOpen]);
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setSidebarOpen(false); };
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       <div className="flex-1">
         <Header title={title} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-        <main>{children}</main>
+        <main className="p-6">{children}</main>
       </div>
     </div>
   );
@@ -65,62 +61,83 @@ function App() {
 
   return (
     <ThemeProvider>
-    <Router>
-      <Routes>
-        <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <AppLayout title="Dashboard">
-                <DashboardPage />
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/projects"
-          element={
-            <ProtectedRoute>
-              <AppLayout title="Projects">
-                <ProjectsPage />
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/projects/:id"
-          element={
-            <ProtectedRoute>
-              <AppLayout title="Project Details">
-                <ProjectDetailPage />
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/tags"
-          element={
-            <ProtectedRoute>
-              <AppLayout title="Tags">
-                <TagsPage />
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/accounts"
-          element={
-            <ProtectedRoute>
-              <AppLayout title="Accounts">
-                <AccountsPage />
-              </AppLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </Router>
+      <Router>
+        <Routes>
+          <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <AppLayout title="Dashboard">
+                  <DashboardPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects"
+            element={
+              <ProtectedRoute>
+                <AppLayout title="Projects">
+                  <ProjectsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id"
+            element={
+              <ProtectedRoute>
+                <AppLayout title="Project Details">
+                  <ProjectDetailPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tags"
+            element={
+              <ProtectedRoute>
+                <AppLayout title="Tags">
+                  <TagsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/accounts"
+            element={
+              <ProtectedRoute>
+                <AppLayout title="Accounts">
+                  <AccountsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Router>
+
+      {/* Global toast */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          className:
+            'rounded-xl shadow-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100',
+          style: { padding: '12px 16px' },
+          duration: 4000,
+          success: {
+            iconTheme: { primary: '#10b981', secondary: '#fff' },
+            className:
+              'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800',
+          },
+          error: {
+            iconTheme: { primary: '#ef4444', secondary: '#fff' },
+            className:
+              'bg-rose-50 dark:bg-rose-900/40 text-rose-800 dark:text-rose-200 border border-rose-200 dark:border-rose-800',
+          },
+        }}
+      />
     </ThemeProvider>
   );
 }
