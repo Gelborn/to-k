@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/t/(.*)",
-      "destination": "https://<YOUR-SUPABASE-REF>.functions.supabase.co/redirect/$1"
+      "destination": "https://enwuiduvnulzkybrctqr.supabase.co/functions/v1/redirect/$1"
     }
   ],
   "headers": [
