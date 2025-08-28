@@ -7,7 +7,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Projects', href: '/projects', icon: FolderOpen },
   { name: 'Tags', href: '/tags', icon: Tag },
-  { name: 'Onwers', href: '/accounts', icon: Users },
+  { name: 'Owners', href: '/accounts', icon: Users },
 ];
 
 interface SidebarProps {
