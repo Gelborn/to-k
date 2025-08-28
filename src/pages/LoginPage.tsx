@@ -24,30 +24,34 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col p-4 animate-fade-in">
+    <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-black text-zinc-100 relative">
       {/* Logo */}
       <div className="absolute top-6 left-6">
-        <a href="/" className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight hover:text-blue-500 transition-colors">
-          tok chip <span className="text-gray-500 dark:text-gray-400 font-extralight"> | admin</span>
+        <a
+          href="/"
+          className="text-xl font-bold text-gray-100 tracking-tight hover:text-blue-400 transition-colors"
+        >
+          tok chip <span className="text-gray-400 font-extralight"> | admin</span>
         </a>
       </div>
 
-      {/* Top right marker */}
-      <div className="absolute top-4 right-4 text-sm text-gray-400 font-light tracking-wider">
-        ADMIN ACCESS
-      </div>
+      {/* Decorative blobs for the liquid glass effect */}
+      <div className="pointer-events-none absolute -top-16 -left-10 h-40 w-40 rounded-full bg-gradient-to-br from-blue-500/25 to-fuchsia-500/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-12 -right-8 h-44 w-44 rounded-full bg-gradient-to-br from-emerald-400/20 to-cyan-500/20 blur-3xl" />
 
-      <div className="flex-1 flex items-center justify-center">
-        <div className="w-full max-w-md">
-          <div className="bg-white/80 dark:bg-gray-900/50 backdrop-blur-xl border border-gray-200 dark:border-gray-800/50 rounded-2xl p-8 shadow-2xl animate-slide-up">
+      <div className="flex-1 flex items-center justify-center px-5 pt-28 pb-10">
+        <div className="relative w-full max-w-md">
+          <div className="relative rounded-3xl border border-white/15 bg-white/10 backdrop-blur-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.6)] p-6 sm:p-8">
             <div className="mb-8 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl mb-6 shadow-lg">
-                <Lock className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl mb-6 shadow">
+                <Lock className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-tight">
+              <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
                 Welcome back
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 font-medium">Sign in to to-k.chip Admin</p>
+              <p className="text-zinc-300 font-medium">
+                Sign in to to-k.chip Admin
+              </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -61,7 +65,7 @@ export const LoginPage: React.FC = () => {
               />
 
               <div className="space-y-1">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-widest">
+                <label className="block text-sm font-semibold text-zinc-200 uppercase tracking-widest">
                   Password
                 </label>
                 <div className="relative">
@@ -71,12 +75,12 @@ export const LoginPage: React.FC = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="w-full px-4 py-3 pr-12 bg-gray-50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-300 dark:border-gray-700/50 rounded-xl text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-600/50"
+                    className="w-full px-4 py-3 pr-12 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -84,15 +88,15 @@ export const LoginPage: React.FC = () => {
               </div>
 
               {error && (
-                <div className="p-4 bg-red-50 dark:bg-red-900/30 backdrop-blur-sm border border-red-200 dark:border-red-800/50 rounded-xl animate-fade-in-down">
-                  <p className="text-red-600 dark:text-red-400 text-sm font-medium">{error}</p>
+                <div className="p-4 bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl animate-fade-in-down">
+                  <p className="text-red-400 text-sm font-medium">{error}</p>
                 </div>
               )}
 
               <div className="flex justify-end">
                 <a
                   href="#"
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
+                  className="text-sm text-zinc-400 hover:text-blue-400 transition-colors font-medium"
                 >
                   Forgot password?
                 </a>
@@ -115,7 +119,7 @@ export const LoginPage: React.FC = () => {
       </div>
 
       {/* Footer */}
-      <div className="absolute bottom-4 w-full text-center text-xs text-gray-400">
+      <div className="absolute bottom-4 w-full text-center text-xs text-zinc-500">
         Made with ♥ by to-k.chip
       </div>
     </div>
