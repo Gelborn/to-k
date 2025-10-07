@@ -1,5 +1,4 @@
-import React from 'react';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -12,13 +11,12 @@ import { AccountsPage } from './pages/AccountsPage';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Header } from './components/Layout/Header';
 import { Toaster } from 'react-hot-toast';
-
-// NEW: branded error page for tag redirects
 import TError from './pages/TError';
 
+/* ───────────────────────────── Protected Route ───────────────────────────── */
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
@@ -26,10 +24,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
       </div>
     );
   }
-  
+
   return user ? <>{children}</> : <Navigate to="/login" />;
 };
 
+/* ───────────────────────────── Layout Wrapper ───────────────────────────── */
 const AppLayout: React.FC<{ children: React.ReactNode; title: string }> = ({ children, title }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -40,9 +39,9 @@ const AppLayout: React.FC<{ children: React.ReactNode; title: string }> = ({ chi
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <Header title={title} onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
         <main className="p-6">{children}</main>
       </div>
@@ -50,6 +49,7 @@ const AppLayout: React.FC<{ children: React.ReactNode; title: string }> = ({ chi
   );
 };
 
+/* ──────────────────────────────── APP MAIN ─────────────────────────────── */
 function App() {
   const { user, loading } = useAuth();
 
@@ -67,7 +67,6 @@ function App() {
         <Routes>
           {/* PUBLIC routes */}
           <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
-          {/* NEW: public branded error route for failed tag redirects */}
           <Route path="/t-error" element={<TError />} />
 
           {/* PROTECTED routes */}
@@ -127,7 +126,7 @@ function App() {
         </Routes>
       </Router>
 
-      {/* Global toast */}
+      {/* Global toast config */}
       <Toaster
         position="top-right"
         toastOptions={{

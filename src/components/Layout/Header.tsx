@@ -19,19 +19,14 @@ export const Header: React.FC<HeaderProps> = ({ title, onMenuToggle }) => {
     setDropdownOpen(false);
   };
 
-  // Close on outside click + Esc
+  // Close dropdown ao clicar fora ou apertar Esc
   React.useEffect(() => {
     const onClickOutside = (e: MouseEvent) => {
       if (!dropdownOpen) return;
       const el = dropdownRef.current;
-      if (el && !el.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
+      if (el && !el.contains(e.target as Node)) setDropdownOpen(false);
     };
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDropdownOpen(false);
-    };
-
+    const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && setDropdownOpen(false);
     document.addEventListener('mousedown', onClickOutside);
     document.addEventListener('keydown', onEsc);
     return () => {
@@ -41,8 +36,8 @@ export const Header: React.FC<HeaderProps> = ({ title, onMenuToggle }) => {
   }, [dropdownOpen]);
 
   return (
-    <header className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800/50 px-4 sm:px-6 h-16 flex items-center sticky top-0 z-30">
-      {/* Left: menu + title */}
+    <header className="w-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800/50 px-4 sm:px-6 h-16 flex items-center sticky top-0 z-30">
+      {/* Left side: Menu + Title */}
       <div className="flex items-center">
         <button
           onClick={onMenuToggle}
@@ -51,11 +46,14 @@ export const Header: React.FC<HeaderProps> = ({ title, onMenuToggle }) => {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight ml-2">{title}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight ml-2">
+          {title}
+        </h1>
       </div>
 
-      {/* Right: actions (pushed to extreme right with ml-auto) */}
+      {/* Right side actions */}
       <div className="ml-auto flex items-center space-x-2 sm:space-x-3">
+        {/* Toggle theme */}
         <button
           onClick={toggleTheme}
           className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-200"
@@ -64,6 +62,7 @@ export const Header: React.FC<HeaderProps> = ({ title, onMenuToggle }) => {
           {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
 
+        {/* Notifications */}
         <button
           className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded-xl transition-all duration-200"
           aria-label="Notifications"
@@ -71,7 +70,7 @@ export const Header: React.FC<HeaderProps> = ({ title, onMenuToggle }) => {
           <Bell className="w-5 h-5" />
         </button>
 
-        {/* User Dropdown */}
+        {/* User dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen((v) => !v)}
