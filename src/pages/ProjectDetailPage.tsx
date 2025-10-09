@@ -9,7 +9,7 @@ import { ResourcesTab } from "../components/Projects/tabs/ResourcesTab";
 import { SettingsTab } from "../components/Projects/tabs/SettingsTab";
 import { CustomersTab } from "../components/Projects/tabs/CustomersTab"; // ⬅️ novo
 
-type ProjectType = "profile_card" | "exclusive_club";
+type ProjectType = "profile_card" | "exclusive_club" | "simple_redirect";
 
 export type UiProject = {
   id: string;
@@ -25,7 +25,7 @@ export type UiProject = {
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = React.useState<
-    "assets" | "tags" | "resources" | "customers" | "settings"   // ⬅️ adiciona "customers"
+    "assets" | "tags" | "resources" | "customers" | "settings"
   >("assets");
 
   const [project, setProject] = React.useState<UiProject | null>(null);
@@ -123,6 +123,8 @@ export const ProjectDetailPage: React.FC = () => {
     );
   }
 
+  const isClub = project.type === "exclusive_club";
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-gray-50 dark:bg-gray-950 min-h-screen">
       <ProjectHeader project={project} />
@@ -131,9 +133,9 @@ export const ProjectDetailPage: React.FC = () => {
       <div className="animate-fade-in">
         {activeTab === "assets" && <AssetsTab projectId={project.id} />}
         {activeTab === "tags" && <TagsTab projectId={project.id} />}
-        {activeTab === "resources" && <ResourcesTab project={project} />}
-        {activeTab === "customers" && <CustomersTab project={project} />}  {/* ⬅️ nova aba */}
-        {activeTab === "settings" && <SettingsTab project={project} onUpdated={load} />}
+        {isClub && activeTab === "resources" && <ResourcesTab project={project} />}
+        {activeTab === "customers" && <CustomersTab project={project} />}
+        <>{activeTab === "settings" && <SettingsTab project={project} onUpdated={load} />}</>
       </div>
     </div>
   );

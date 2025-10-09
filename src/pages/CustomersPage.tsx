@@ -220,7 +220,7 @@ export const CustomersPage: React.FC = () => {
   return (
     <div className="p-6 bg-gray-50 dark:bg-gray-950 min-h-screen">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Customers</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Members</h1>
 
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
 
@@ -381,7 +381,7 @@ export const CustomersPage: React.FC = () => {
               {(!loading && filteredRows.length === 0) && (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-gray-600 dark:text-gray-400">
-                    No customers found for this filter.
+                    No members found for this filter.
                   </td>
                 </tr>
               )}

@@ -11,7 +11,7 @@ const navigation = [
   { name: 'Projects', href: '/projects', icon: FolderOpen },
   { name: 'Tags', href: '/tags', icon: Tag },
   { name: 'Owners', href: '/accounts', icon: Crown },
-  { name: 'Customers', href: '/customers', icon: Handshake },
+  { name: 'Members', href: '/customers', icon: Handshake },
 ];
 
 interface SidebarProps {

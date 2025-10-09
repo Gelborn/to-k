@@ -6,19 +6,31 @@ export const ProjectTabs: React.FC<{
   active: "assets" | "tags" | "resources" | "customers" | "settings";
   onChange: (t: "assets" | "tags" | "resources" | "customers" | "settings") => void;
   project: UiProject;
-}> = ({ active, onChange }) => {
-  const tabs = [
+}> = ({ active, onChange, project }) => {
+  const isClub = project.type === "exclusive_club";
+  // const isRedirect = project.type === "simple_redirect"; // disponível se quiser ramificar mais
+
+  // Monta as tabs base
+  const baseTabs = [
     { id: "assets", label: "Assets", icon: Package },
     { id: "tags", label: "Tags", icon: Tag },
-    { id: "resources", label: "Resources", icon: Folder },
+    // Resources só aparece para exclusive_club
+    ...(isClub ? [{ id: "resources", label: "Resources", icon: Folder }] as const : []),
     { id: "customers", label: "Customers", icon: Users }, // ⬅️ nova aba
     { id: "settings", label: "Settings", icon: Settings },
   ] as const;
 
+  // Se estiver em 'resources' mas o projeto não for club, corrige para 'assets'
+  React.useEffect(() => {
+    if (!isClub && active === "resources") {
+      onChange("assets");
+    }
+  }, [isClub, active, onChange]);
+
   return (
     <div className="border-b border-gray-200 dark:border-gray-800/50">
       <nav className="flex space-x-8 overflow-x-auto">
-        {tabs.map((tab) => {
+        {baseTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = active === tab.id;
           return (

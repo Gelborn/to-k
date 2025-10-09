@@ -327,7 +327,7 @@ export const DashboardPage: React.FC = () => {
           icon={<ShieldCheck className="h-6 w-6 text-emerald-500" />}
         />
         <BigStatCard
-          title="Customers"
+          title="Members"
           value={counts.customers}
           loading={countsLoading}
           trend="up"
@@ -346,7 +346,7 @@ export const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800/60 bg-white/80 dark:bg-gray-900/50 backdrop-blur-sm p-6 shadow-sm">
           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6 tracking-tight">
-            New customers by day
+            New members by day
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">

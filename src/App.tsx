@@ -126,7 +126,7 @@ function App() {
             path="/customers"
             element={
               <ProtectedRoute>
-                <AppLayout title="Customers">
+                <AppLayout title="Members">
                   <CustomersPage />
                 </AppLayout>
               </ProtectedRoute>
