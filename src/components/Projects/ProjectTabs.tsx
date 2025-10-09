@@ -1,16 +1,17 @@
 import React from "react";
-import { Package, Tag, Folder, Settings } from "lucide-react";
+import { Package, Tag, Folder, Settings, Users } from "lucide-react";
 import type { UiProject } from "../../pages/ProjectDetailPage";
 
 export const ProjectTabs: React.FC<{
-  active: "assets" | "tags" | "resources" | "settings";
-  onChange: (t: "assets" | "tags" | "resources" | "settings") => void;
+  active: "assets" | "tags" | "resources" | "customers" | "settings";
+  onChange: (t: "assets" | "tags" | "resources" | "customers" | "settings") => void;
   project: UiProject;
-}> = ({ active, onChange, project }) => {
+}> = ({ active, onChange }) => {
   const tabs = [
     { id: "assets", label: "Assets", icon: Package },
     { id: "tags", label: "Tags", icon: Tag },
     { id: "resources", label: "Resources", icon: Folder },
+    { id: "customers", label: "Customers", icon: Users }, // ⬅️ nova aba
     { id: "settings", label: "Settings", icon: Settings },
   ] as const;
 

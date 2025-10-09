@@ -1,7 +1,7 @@
 import React from "react";
 import {
   Plus, Calendar, Hash, RefreshCw, Link as LinkIcon,
-  Shield, Zap, Box, Power, PowerOff, ChevronDown
+  Shield, Zap, Box, Power, PowerOff, ChevronDown, Users
 } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -24,6 +24,9 @@ type TagRow = {
   updated_at: string | null;
   projects?: { id: string; name: string } | null;
   assets?: { id: string; name: string | null } | null;
+  tag_claims?: Array<{
+    profiles?: { id: string; display_name: string | null; email: string | null } | null;
+  }> | null;
 };
 
 const PUBLIC_ID_RE = /^[A-Za-z0-9\-_]{4,64}$/;
@@ -65,7 +68,7 @@ export const TagsPage: React.FC = () => {
     nfc_uid: "",
     project_id: "",
     asset_id: "",
-    claim_mode: "secure_tap" as "code" | "secure_tap" | "first_to_claim",
+    claim_mode: "first_to_claim" as "code" | "secure_tap" | "first_to_claim",
   });
   const [errors, setErrors] = React.useState<Partial<Record<keyof typeof form, string>>>({});
   const firstFieldRef = React.useRef<HTMLInputElement>(null);
@@ -117,9 +120,14 @@ export const TagsPage: React.FC = () => {
     try {
       let query = supabase
         .from("tags")
-        .select(
-          "id,project_id,asset_id,public_id,nfc_uid,claim_mode,status,created_at,updated_at,projects(id,name),assets(id,name)"
-        )
+        .select(`
+          id,project_id,asset_id,public_id,nfc_uid,claim_mode,status,created_at,updated_at,
+          projects(id,name),
+          assets(id,name),
+          tag_claims:tag_claims(
+            profiles:profiles!tag_claims_claimed_by_profile_id_fkey(id, display_name, email)
+          )
+        `)
         .order("created_at", { ascending: false });
 
       if (projectFilter) query = query.eq("project_id", projectFilter);
@@ -186,9 +194,25 @@ export const TagsPage: React.FC = () => {
     </label>
   );
 
+  // ----- Helpers --------------------------------------------------------------
+  const claimedByText = (t: TagRow) => {
+    const claims = Array.isArray(t.tag_claims) ? t.tag_claims : [];
+    const names: string[] = [];
+    const seen = new Set<string>();
+    for (const c of claims) {
+      const prof = c?.profiles;
+      if (!prof) continue;
+      if (seen.has(prof.id)) continue;
+      seen.add(prof.id);
+      names.push(prof.display_name || prof.email || showEnds(prof.id, 6, 4));
+    }
+    const text = names.join(", ");
+    return { text, title: text };
+  };
+
   // ----- Create flow ----------------------------------------------------------
   const onOpen = () => {
-    setForm({ public_id: "", nfc_uid: "", project_id: "", asset_id: "", claim_mode: "secure_tap" });
+    setForm({ public_id: "", nfc_uid: "", project_id: "", asset_id: "", claim_mode: "first_to_claim" });
     setErrors({});
     setAssets([]);
     setIsModalOpen(true);
@@ -219,14 +243,12 @@ export const TagsPage: React.FC = () => {
         claim_mode: form.claim_mode,
       };
 
-      // Use fetch so we always see JSON error payloads
       const { ok, json, status } = await invokeEdgeJson("admin_create_tag", body);
 
       if (!ok) {
         const serverMsg: string =
           json?.error || json?.message || json?.msg || `Edge function error (${status})`;
 
-        // Map to field-level errors
         if (/public_id already exists/i.test(serverMsg)) {
           setErrors((e) => ({ ...e, public_id: "This public_id is already in use." }));
         } else if (/nfc_uid already in use/i.test(serverMsg)) {
@@ -300,89 +322,120 @@ export const TagsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table (sem rolagem lateral; manter linhas únicas onde possível) */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-visible">
+          <table className="w-full table-auto">
             <thead className="bg-gray-100 dark:bg-gray-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">ID</th>
+                {/* ID removido */}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Public ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">NFC UID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Claim Mode</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Project</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Asset</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Claimed by</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Created</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-              {tags.map((t) => (
-                <tr key={t.id} className="hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-300">
-                    <code className="text-xs" title={t.id}>{showEnds(t.id)}</code>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <Hash className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2" />
-                      <span className="text-sm text-gray-900 dark:text-gray-100 font-medium" title={t.public_id}>
-                        {showEnds(t.public_id)}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex items-center text-gray-700 dark:text-gray-200">
-                      <LinkIcon className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                      <code className="text-xs" title={t.nfc_uid}>{showEnds(t.nfc_uid, 8, 6)}</code>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex items-center text-gray-700 dark:text-gray-200">
-                      {t.claim_mode === "secure_tap" ? <Shield className="w-4 h-4 mr-2" /> : t.claim_mode === "code" ? <Hash className="w-4 h-4 mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
-                      <span className="uppercase text-xs tracking-wider">{t.claim_mode}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span
-                      className={[
-                        "px-2 py-1 rounded-md text-xs font-medium",
-                        t.status === "active"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
-                          : t.status === "claimed"
-                          ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300"
-                          : "bg-zinc-100 text-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300 ring-1 ring-red-400/50",
-                      ].join(" ")}
-                    >
-                      {t.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                    {t.projects?.name ?? "—"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                    <div className="flex items-center">
-                      <Box className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                      {t.assets?.name ?? "—"}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                      <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                      {fmtBR(t.created_at)}
-                    </div>
-                  </td>
+              {tags.map((t) => {
+                const claim = claimedByText(t);
+                return (
+                  <tr key={t.id} className="hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
+                    {/* Public ID — preferir uma linha, encurtando visual */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center min-w-0">
+                        <Hash className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2 shrink-0" />
+                        <span className="text-sm text-gray-900 dark:text-gray-100 font-medium truncate" title={t.public_id}>
+                          {showEnds(t.public_id, 10, 6)}
+                        </span>
+                      </div>
+                    </td>
 
-                  {/* Actions LAST */}
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="secondary" onClick={() => toggleStatus(t)} title={t.status === "disabled" ? "Enable" : "Disable"}>
-                        {t.status === "disabled" ? (<><Power className="w-4 h-4 mr-2" /> Enable</>) : (<><PowerOff className="w-4 h-4 mr-2" /> Disable</>)}
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    {/* NFC UID — NÃO PODE quebrar */}
+                    <td className="px-6 py-4 text-sm">
+                      <div className="flex items-center text-gray-700 dark:text-gray-200 min-w-0 max-w-[12rem] overflow-hidden">
+                        <LinkIcon className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500 shrink-0" />
+                        <code className="text-xs whitespace-nowrap truncate" title={t.nfc_uid}>
+                          {showEnds(t.nfc_uid, 8, 6)}
+                        </code>
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4 text-sm whitespace-nowrap">
+                      <div className="flex items-center text-gray-700 dark:text-gray-200">
+                        {t.claim_mode === "secure_tap" ? <Shield className="w-4 h-4 mr-2" /> : t.claim_mode === "code" ? <Hash className="w-4 h-4 mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                        <span className="uppercase text-xs tracking-wider">{t.claim_mode}</span>
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4 text-sm whitespace-nowrap">
+                      <span
+                        className={[
+                          "px-2 py-1 rounded-md text-xs font-medium",
+                          t.status === "active"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+                            : t.status === "claimed"
+                            ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300"
+                            : "bg-zinc-100 text-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300 ring-1 ring-red-400/50",
+                        ].join(" ")}
+                      >
+                        {t.status}
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                      {t.projects?.name ?? "—"}
+                    </td>
+
+                    {/* Asset — pode quebrar uma linha se necessário */}
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                      <div className="flex items-center min-w-0">
+                        <Box className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500 shrink-0" />
+                        <span className="block max-w-[18rem] whitespace-normal break-words" title={t.assets?.name ?? undefined}>
+                          {t.assets?.name ?? "—"}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Claimed by — comma separated; pode quebrar se faltar espaço */}
+                    <td className="px-6 py-4 text-sm align-top">
+                      {claim.text ? (
+                        <div className="flex items-start gap-2 min-w-0">
+                          <Users className="w-4 h-4 mt-0.5 text-gray-400 dark:text-gray-500 shrink-0" />
+                          <span
+                            className="block max-w-[28rem] whitespace-normal break-words leading-snug"
+                            title={claim.title}
+                          >
+                            {claim.text}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 dark:text-gray-400">—</span>
+                      )}
+                    </td>
+
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                        <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
+                        {fmtBR(t.created_at)}
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="secondary" onClick={() => toggleStatus(t)} title={t.status === "disabled" ? "Enable" : "Disable"}>
+                          {t.status === "disabled" ? (<><Power className="w-4 h-4 mr-2" /> Enable</>) : (<><PowerOff className="w-4 h-4 mr-2" /> Disable</>)}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
               {!loading && tags.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-6 py-10 text-center text-sm text-gray-600 dark:text-gray-400">
@@ -395,7 +448,7 @@ export const TagsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Create modal (clean, modern) */}
+      {/* Create modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -484,9 +537,9 @@ export const TagsPage: React.FC = () => {
                 error={errors.claim_mode}
                 required
               >
-                <option value="secure_tap">secure_tap</option>
-                <option value="code">code</option>
-                <option value="first_to_claim">first_to_claim</option>{/* remove if enum not updated */}
+                <option value="first_to_claim">first_to_claim</option>
+                <option value="secure_tap" disabled>secure_tap (em breve)</option>
+                <option value="code" disabled>code (em breve)</option>
               </Select>
             </div>
           </div>

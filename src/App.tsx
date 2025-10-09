@@ -8,6 +8,7 @@ import { ProjectsPage } from './pages/ProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { TagsPage } from './pages/TagsPage';
 import { AccountsPage } from './pages/AccountsPage';
+import { CustomersPage } from './pages/CustomersPage'
 import { Sidebar } from './components/Layout/Sidebar';
 import { Header } from './components/Layout/Header';
 import { Toaster } from 'react-hot-toast';
@@ -120,7 +121,17 @@ function App() {
               </ProtectedRoute>
             }
           />
-
+          /*Customers route*/
+          <Route
+            path="/customers"
+            element={
+              <ProtectedRoute>
+                <AppLayout title="Customers">
+                  <CustomersPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
           {/* Catch-all */}
           <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
         </Routes>

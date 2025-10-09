@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, FolderOpen, Tag, Users, X,
+  LayoutDashboard, FolderOpen, Tag, Crown, X, Handshake,
   PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -10,7 +10,8 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Projects', href: '/projects', icon: FolderOpen },
   { name: 'Tags', href: '/tags', icon: Tag },
-  { name: 'Owners', href: '/accounts', icon: Users },
+  { name: 'Owners', href: '/accounts', icon: Crown },
+  { name: 'Customers', href: '/customers', icon: Handshake },
 ];
 
 interface SidebarProps {

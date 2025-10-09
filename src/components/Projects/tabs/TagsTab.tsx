@@ -2,7 +2,7 @@
 import React from "react";
 import {
   Plus, Calendar, Hash, Link as LinkIcon,
-  Shield, Box, Power, PowerOff, ChevronDown
+  Shield, Box, Power, PowerOff, ChevronDown, Users
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import { Button } from "../../ui/Button";
@@ -20,6 +20,11 @@ export type TagRow = {
   status: "active" | "disabled" | "claimed";
   created_at: string;
   assets?: { id: string; name: string | null } | null;
+
+  // embed claimers
+  tag_claims?: Array<{
+    profiles?: { id: string; display_name: string | null; email: string | null } | null;
+  }> | null;
 };
 
 type AssetLite = { id: string; name: string | null };
@@ -100,7 +105,7 @@ export const TagsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
     public_id: "",
     nfc_uid: "",
     asset_id: "",
-    claim_mode: "secure_tap",
+    claim_mode: "first_to_claim", // default aqui
   });
   const [fieldErrors, setFieldErrors] = React.useState<Partial<Record<keyof typeof draft, string>>>({});
   const [submitting, setSubmitting] = React.useState(false);
@@ -122,7 +127,13 @@ export const TagsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
     const { data, error } = await supabase
       .from("tags")
-      .select("id, project_id, asset_id, public_id, nfc_uid, claim_mode, status, created_at, assets(id,name)")
+      .select(`
+        id, project_id, asset_id, public_id, nfc_uid, claim_mode, status, created_at,
+        assets(id,name),
+        tag_claims:tag_claims(
+          profiles:profiles!tag_claims_claimed_by_profile_id_fkey(id, display_name, email)
+        )
+      `)
       .eq("project_id", projectId)
       .order("created_at", { ascending: false });
 
@@ -151,7 +162,7 @@ export const TagsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   React.useEffect(() => { load(); }, [load]);
   React.useEffect(() => { loadAssets(); }, [loadAssets]);
 
-  // realtime (keeps in sync) — we still force refresh after writes for instant UX
+  // realtime (keeps in sync)
   React.useEffect(() => {
     const ch = supabase
       .channel("tags_live_" + projectId)
@@ -160,14 +171,35 @@ export const TagsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
         { event: "*", schema: "public", table: "tags", filter: `project_id=eq.${projectId}` },
         () => load()
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tag_claims" },
+        () => load()
+      )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [projectId, load]);
 
   const openModal = () => {
-    setDraft({ public_id: "", nfc_uid: "", asset_id: "", claim_mode: "secure_tap" });
+    setDraft({ public_id: "", nfc_uid: "", asset_id: "", claim_mode: "first_to_claim" }); // default aqui também
     setFieldErrors({});
     setIsModalOpen(true);
+  };
+
+  // helpers
+  const claimedByText = (t: TagRow) => {
+    const claims = Array.isArray(t.tag_claims) ? t.tag_claims : [];
+    const names: string[] = [];
+    const seen = new Set<string>();
+    for (const c of claims) {
+      const prof = c?.profiles;
+      if (!prof) continue;
+      if (seen.has(prof.id)) continue;
+      seen.add(prof.id);
+      names.push(prof.display_name || prof.email || showEnds(prof.id, 6, 4));
+    }
+    const text = names.join(", ");
+    return { text, title: text };
   };
 
   // Create via edge function with locked projectId
@@ -192,7 +224,7 @@ export const TagsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
         asset_id: draft.asset_id || null, // optional
         public_id: draft.public_id.trim(),
         nfc_uid: nfc,
-        claim_mode: draft.claim_mode,
+        claim_mode: draft.claim_mode,     // será "first_to_claim"
       };
 
       const { ok, json, status } = await invokeEdgeJson("admin_create_tag", body);
@@ -224,7 +256,7 @@ export const TagsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
       toast.success("Tag created!");
       setIsModalOpen(false); // close modal
-      setDraft({ public_id: "", nfc_uid: "", asset_id: "", claim_mode: "secure_tap" });
+      setDraft({ public_id: "", nfc_uid: "", asset_id: "", claim_mode: "first_to_claim" });
       setFieldErrors({});
       await load(); // refresh now
     } catch (err: any) {
@@ -241,7 +273,7 @@ export const TagsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       const { error } = await supabase.from("tags").update({ status: next }).eq("id", row.id);
       if (error) throw error;
       toast.success(`Tag ${next === "disabled" ? "disabled" : "enabled"}.`);
-      await load(); // instant refresh (realtime also updates)
+      await load(); // instant refresh
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to update status.");
     }
@@ -253,7 +285,6 @@ export const TagsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">Project Tags</h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">Manage all tags for this project</p>
         </div>
         <Button onClick={openModal} className="whitespace-nowrap">
           <Plus className="w-4 h-4 mr-2" />
@@ -285,87 +316,116 @@ export const TagsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
             <table className="w-full">
               <thead className="bg-gray-100 dark:bg-gray-800">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">ID</th>
+                  {/* ID removido */}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Public ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">NFC UID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Claim Mode</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Asset</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Claimed by</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Created</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                {rows.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-300">
-                      <code className="text-xs" title={t.id}>{showEnds(t.id)}</code>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Hash className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2" />
-                        <span className="text-sm text-gray-900 dark:text-gray-100 font-medium" title={t.public_id}>
-                          {showEnds(t.public_id)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center text-gray-700 dark:text-gray-200">
-                        <LinkIcon className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                        <code className="text-xs" title={t.nfc_uid}>{showEnds(t.nfc_uid, 8, 6)}</code>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center text-gray-700 dark:text-gray-200">
-                        {t.claim_mode === "secure_tap" ? <Shield className="w-4 h-4 mr-2" /> : <Hash className="w-4 h-4 mr-2" />}
-                        <span className="uppercase text-xs tracking-wider">{t.claim_mode}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        className={[
-                          "px-2 py-1 rounded-md text-xs font-medium",
-                          t.status === "active"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
-                            : t.status === "claimed"
-                            ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300"
-                            : "bg-zinc-100 text-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300 ring-1 ring-red-400/50",
-                        ].join(" ")}
-                      >
-                        {t.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                      <div className="flex items-center">
-                        <Box className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                        {t.assets?.name ?? "—"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                        <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                        {fmtBR(t.created_at)}
-                      </div>
-                    </td>
+                {rows.map((t) => {
+                  const claim = claimedByText(t);
+                  return (
+                    <tr key={t.id} className="hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <Hash className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2" />
+                          <span className="text-sm text-gray-900 dark:text-gray-100 font-medium" title={t.public_id}>
+                            {showEnds(t.public_id)}
+                          </span>
+                        </div>
+                      </td>
 
-                    {/* Actions last — only enable/disable */}
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="secondary"
-                          onClick={() => toggleStatus(t)}
-                          title={t.status === "disabled" ? "Enable" : "Disable"}
+                      {/* NFC UID — não quebra */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex items-center text-gray-700 dark:text-gray-200 max-w-[12rem] overflow-hidden">
+                          <LinkIcon className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
+                          <code className="text-xs whitespace-nowrap truncate" title={t.nfc_uid}>
+                            {showEnds(t.nfc_uid, 8, 6)}
+                          </code>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex items-center text-gray-700 dark:text-gray-200">
+                          {t.claim_mode === "secure_tap" ? <Shield className="w-4 h-4 mr-2" /> : <Hash className="w-4 h-4 mr-2" />}
+                          <span className="uppercase text-xs tracking-wider">{t.claim_mode}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span
+                          className={[
+                            "px-2 py-1 rounded-md text-xs font-medium",
+                            t.status === "active"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+                              : t.status === "claimed"
+                              ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300"
+                              : "bg-zinc-100 text-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300 ring-1 ring-red-400/50",
+                          ].join(" ")}
                         >
-                          {t.status === "disabled" ? (
-                            <><Power className="w-4 h-4 mr-2" /> Enable</>
-                          ) : (
-                            <><PowerOff className="w-4 h-4 mr-2" /> Disable</>
-                          )}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {t.status}
+                        </span>
+                      </td>
+
+                      {/* Asset — pode quebrar uma linha */}
+                      <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                        <div className="flex items-center min-w-0">
+                          <Box className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500 shrink-0" />
+                          <span className="block max-w-[18rem] whitespace-normal break-words" title={t.assets?.name ?? undefined}>
+                            {t.assets?.name ?? "—"}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Claimed by — vírgulas; quebra se faltar espaço */}
+                      <td className="px-6 py-4 text-sm align-top">
+                        {claim.text ? (
+                          <div className="flex items-start gap-2 min-w-0">
+                            <Users className="w-4 h-4 mt-0.5 text-gray-400 dark:text-gray-500 shrink-0" />
+                            <span
+                              className="block max-w-[28rem] whitespace-normal break-words leading-snug"
+                              title={claim.title}
+                            >
+                              {claim.text}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-500 dark:text-gray-400">—</span>
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                          <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
+                          {fmtBR(t.created_at)}
+                        </div>
+                      </td>
+
+                      {/* Actions last — only enable/disable */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="secondary"
+                            onClick={() => toggleStatus(t)}
+                            title={t.status === "disabled" ? "Enable" : "Disable"}
+                          >
+                            {t.status === "disabled" ? (
+                              <><Power className="w-4 h-4 mr-2" /> Enable</>
+                            ) : (
+                              <><PowerOff className="w-4 h-4 mr-2" /> Disable</>
+                            )}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -437,15 +497,15 @@ export const TagsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
                 label="Claim Mode"
                 value={draft.claim_mode}
                 onChange={(e) => {
-                  setDraft((d) => ({ ...d, claim_mode: e.target.value as "code" | "secure_tap" }));
+                  setDraft((d) => ({ ...d, claim_mode: e.target.value as "code" | "secure_tap" | "first_to_claim" }));
                   setFieldErrors((x) => ({ ...x, claim_mode: undefined }));
                 }}
                 error={fieldErrors.claim_mode}
                 required
               >
-                <option value="secure_tap">secure_tap</option>
-                <option value="code">code</option>
                 <option value="first_to_claim">first_to_claim</option>
+                <option value="secure_tap" disabled>secure_tap (em breve)</option>
+                <option value="code" disabled>code (em breve)</option>
               </Select>
             </div>
           </div>

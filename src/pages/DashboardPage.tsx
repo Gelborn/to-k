@@ -1,6 +1,6 @@
 import React from "react";
 import { ArrowUpRight, ArrowDownRight, Users2, FolderOpen, Tag as TagIcon, ShieldCheck } from "lucide-react";
-import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, defs } from "recharts";
+import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { supabase } from "../lib/supabase";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -10,7 +10,43 @@ const formatNumber = (n?: number | null) =>
   (n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// BigStatCard – prominent KPI tile
+// Date helpers (7 days buckets, local timezone-safe)
+// ──────────────────────────────────────────────────────────────────────────────
+type DayPoint = { key: string; label: string };
+
+function startOfDayLocal(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+function addDays(d: Date, days: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + days);
+  return x;
+}
+function dateKeyLocal(d: Date) {
+  // YYYY-MM-DD (local)
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function dateLabelLocal(d: Date) {
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+function lastNDaysMeta(n: number): DayPoint[] {
+  const today0 = startOfDayLocal(new Date());
+  const start = addDays(today0, -(n - 1));
+  const out: DayPoint[] = [];
+  for (let i = 0; i < n; i++) {
+    const dt = addDays(start, i);
+    out.push({ key: dateKeyLocal(dt), label: dateLabelLocal(dt) });
+  }
+  return out;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+/** BigStatCard – prominent KPI tile */
 // ──────────────────────────────────────────────────────────────────────────────
 function BigStatCard({
   title,
@@ -39,10 +75,9 @@ function BigStatCard({
         "border border-gray-200 dark:border-gray-800/60",
         "bg-white/80 dark:bg-gray-900/50 backdrop-blur-sm",
         "p-6 shadow-sm transition hover:shadow-md hover:border-blue-400/30",
-        "ring-1 ring-transparent group-hover:ring-blue-500/20", // subtle hover ring
+        "ring-1 ring-transparent group-hover:ring-blue-500/20",
       ].join(" ")}
     >
-      {/* Subtle glow (more sober than before) */}
       <div
         className={[
           "pointer-events-none absolute -top-24 -right-24 h-48 w-48 rounded-full",
@@ -50,7 +85,6 @@ function BigStatCard({
           "blur-2xl group-hover:from-blue-400/20 group-hover:via-fuchsia-400/10",
         ].join(" ")}
       />
-
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
@@ -69,7 +103,6 @@ function BigStatCard({
             </p>
           </div>
         </div>
-
         {trend && (
           <span
             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${
@@ -88,25 +121,6 @@ function BigStatCard({
     </div>
   );
 }
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Mock chart data – replace with API data when available
-// ──────────────────────────────────────────────────────────────────────────────
-const last14Days = Array.from({ length: 14 }).map((_, i) => {
-  const d = new Date();
-  d.setDate(d.getDate() - (13 - i));
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-});
-
-const customersSeries = last14Days.map((label, i) => ({
-  day: label,
-  newCustomers: Math.max(0, Math.round(4 + Math.sin(i / 2) * 3 + (i % 3)))
-}));
-
-const redirectsSeries = last14Days.map((label, i) => ({
-  day: label,
-  redirects: Math.max(0, Math.round(40 + Math.cos(i / 2.5) * 18 + (i % 5)))
-}));
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Data fetching hook – live counts via Supabase
@@ -128,13 +142,11 @@ function useDashboardCounts() {
       setLoading(true);
       setError(null);
       try {
-        // projects count
         const { count: projectsCount, error: pErr } = await supabase
           .from("projects")
           .select("id", { count: "exact", head: true });
         if (pErr) throw pErr;
 
-        // owners & customers from profiles (assuming 'role' enum)
         const { count: ownersCount, error: oErr } = await supabase
           .from("profiles")
           .select("id", { count: "exact", head: true })
@@ -147,7 +159,6 @@ function useDashboardCounts() {
           .eq("role", "customer");
         if (cErr) throw cErr;
 
-        // tags count
         const { count: tagsCount, error: tErr } = await supabase
           .from("tags")
           .select("id", { count: "exact", head: true });
@@ -177,6 +188,104 @@ function useDashboardCounts() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Series hook – REAL data for last 7 days (customers & redirects)
+// ──────────────────────────────────────────────────────────────────────────────
+function useDashboardSeries() {
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [customersSeries, setCustomersSeries] = React.useState<Array<{ day: string; newCustomers: number }>>([]);
+  const [redirectsSeries, setRedirectsSeries] = React.useState<Array<{ day: string; redirects: number }>>([]);
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Build 7-day buckets (local days)
+      const days = lastNDaysMeta(7);
+      const baseCustomers: Record<string, number> = Object.fromEntries(days.map(d => [d.key, 0]));
+      const baseRedirects: Record<string, number> = Object.fromEntries(days.map(d => [d.key, 0]));
+
+      // Fetch customers created in the last 7 local days window:
+      // start inclusive at local 00:00 of day[0], end exclusive local 00:00 of day after last
+      const startLocal = (() => {
+        const d0 = days[0].key; // YYYY-MM-DD local
+        // convert to Date local midnight
+        const [y, m, d] = d0.split("-").map(Number);
+        return new Date(y, (m - 1), d, 0, 0, 0, 0);
+      })();
+      const endLocalExclusive = addDays(startOfDayLocal(new Date()), 1); // tomorrow 00:00 local
+
+      // Convert to ISO UTC bounds for DB filter
+      const startISO = new Date(startLocal.getTime() - startLocal.getTimezoneOffset() * 60000).toISOString();
+      const endISO = new Date(endLocalExclusive.getTime() - endLocalExclusive.getTimezoneOffset() * 60000).toISOString();
+
+      // 1) Customers created
+      {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("created_at", { head: false })
+          .eq("role", "customer")
+          .gte("created_at", startISO)
+          .lt("created_at", endISO);
+        if (error) throw error;
+
+        (data ?? []).forEach((row: any) => {
+          const dt = new Date(row.created_at);
+          // map UTC timestamp into local bucket
+          const local = startOfDayLocal(dt);
+          const key = dateKeyLocal(local);
+          if (baseCustomers[key] !== undefined) baseCustomers[key] += 1;
+        });
+      }
+
+      // 2) Redirects (taps) created
+      {
+        const { data, error } = await supabase
+          .from("taps")
+          .select("created_at", { head: false })
+          .gte("created_at", startISO)
+          .lt("created_at", endISO);
+        if (error) throw error;
+
+        (data ?? []).forEach((row: any) => {
+          const dt = new Date(row.created_at);
+          const local = startOfDayLocal(dt);
+          const key = dateKeyLocal(local);
+          if (baseRedirects[key] !== undefined) baseRedirects[key] += 1;
+        });
+      }
+
+      // Compose series in label order
+      setCustomersSeries(days.map(d => ({ day: d.label, newCustomers: baseCustomers[d.key] ?? 0 })));
+      setRedirectsSeries(days.map(d => ({ day: d.label, redirects: baseRedirects[d.key] ?? 0 })));
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load chart series");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial load + realtime
+  React.useEffect(() => {
+    load();
+  }, [load]);
+
+  React.useEffect(() => {
+    const ch = supabase
+      .channel("dashboard_series_live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "taps" }, () => load())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [load]);
+
+  return { loading, error, customersSeries, redirectsSeries, reload: load };
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Pretty tooltip for charts
 // ──────────────────────────────────────────────────────────────────────────────
 const ChartTooltip = ({ active, payload, label }: any) => {
@@ -196,7 +305,8 @@ const ChartTooltip = ({ active, payload, label }: any) => {
 // Main Dashboard Page
 // ──────────────────────────────────────────────────────────────────────────────
 export const DashboardPage: React.FC = () => {
-  const { loading, error, counts } = useDashboardCounts();
+  const { loading: countsLoading, error: countsError, counts } = useDashboardCounts();
+  const { loading: seriesLoading, error: seriesError, customersSeries, redirectsSeries } = useDashboardSeries();
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8 bg-gray-50 dark:bg-gray-950 min-h-screen">
@@ -205,28 +315,28 @@ export const DashboardPage: React.FC = () => {
         <BigStatCard
           title="Projects"
           value={counts.projects}
-          loading={loading}
+          loading={countsLoading}
           trend="up"
           icon={<FolderOpen className="h-6 w-6 text-indigo-500" />}
         />
         <BigStatCard
           title="Owners"
           value={counts.owners}
-          loading={loading}
+          loading={countsLoading}
           trend="flat"
           icon={<ShieldCheck className="h-6 w-6 text-emerald-500" />}
         />
         <BigStatCard
           title="Customers"
           value={counts.customers}
-          loading={loading}
+          loading={countsLoading}
           trend="up"
           icon={<Users2 className="h-6 w-6 text-fuchsia-500" />}
         />
         <BigStatCard
           title="Tags"
           value={counts.tags}
-          loading={loading}
+          loading={countsLoading}
           trend="down"
           icon={<TagIcon className="h-6 w-6 text-amber-500" />}
         />
@@ -255,6 +365,7 @@ export const DashboardPage: React.FC = () => {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          {seriesLoading && <div className="mt-3 h-3 w-24 rounded bg-gray-200 dark:bg-gray-800 animate-pulse" />}
         </div>
 
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800/60 bg-white/80 dark:bg-gray-900/50 backdrop-blur-sm p-6 shadow-sm">
@@ -272,6 +383,7 @@ export const DashboardPage: React.FC = () => {
               </LineChart>
             </ResponsiveContainer>
           </div>
+          {seriesLoading && <div className="mt-3 h-3 w-24 rounded bg-gray-200 dark:bg-gray-800 animate-pulse" />}
         </div>
       </div>
 
@@ -335,9 +447,9 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {error && (
+      {(countsError || seriesError) && (
         <p className="text-sm text-rose-600">
-          {error}
+          {countsError || seriesError}
         </p>
       )}
     </div>

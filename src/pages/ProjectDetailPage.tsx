@@ -7,6 +7,7 @@ import { AssetsTab } from "../components/Projects/tabs/AssetsTab";
 import { TagsTab } from "../components/Projects/tabs/TagsTab";
 import { ResourcesTab } from "../components/Projects/tabs/ResourcesTab";
 import { SettingsTab } from "../components/Projects/tabs/SettingsTab";
+import { CustomersTab } from "../components/Projects/tabs/CustomersTab"; // ⬅️ novo
 
 type ProjectType = "profile_card" | "exclusive_club";
 
@@ -24,7 +25,7 @@ export type UiProject = {
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = React.useState<
-    "assets" | "tags" | "resources" | "settings"
+    "assets" | "tags" | "resources" | "customers" | "settings"   // ⬅️ adiciona "customers"
   >("assets");
 
   const [project, setProject] = React.useState<UiProject | null>(null);
@@ -36,7 +37,6 @@ export const ProjectDetailPage: React.FC = () => {
     setLoading(true);
     setError(null);
 
-    // project + owners
     const { data, error } = await supabase
       .from("projects")
       .select(
@@ -83,7 +83,6 @@ export const ProjectDetailPage: React.FC = () => {
     load();
   }, [load]);
 
-  // Realtime updates for this project + owners
   React.useEffect(() => {
     if (!id) return;
     const ch = supabase
@@ -133,6 +132,7 @@ export const ProjectDetailPage: React.FC = () => {
         {activeTab === "assets" && <AssetsTab projectId={project.id} />}
         {activeTab === "tags" && <TagsTab projectId={project.id} />}
         {activeTab === "resources" && <ResourcesTab project={project} />}
+        {activeTab === "customers" && <CustomersTab project={project} />}  {/* ⬅️ nova aba */}
         {activeTab === "settings" && <SettingsTab project={project} onUpdated={load} />}
       </div>
     </div>
