@@ -2,11 +2,11 @@ import React, { useMemo, useRef, useState } from "react";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
-import { Sparkles, LayoutGrid, Check, ChevronDown } from "lucide-react";
+import { Sparkles, LayoutGrid, Check, ChevronDown, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
 import { supabase } from "../../lib/supabase";
 
-type ProjectType = "profile_card" | "exclusive_club";
+type ProjectType = "profile_card" | "exclusive_club" | "simple_redirect";
 
 type OwnerOption = {
   id: string;
@@ -35,7 +35,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // focus first field on open (and prevent modal refocus while typing)
   const nameRef = useRef<HTMLInputElement>(null);
 
   const canShowShowroom = type === "exclusive_club";
@@ -57,7 +56,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
   const ownerHint = useMemo(() => {
     const o = ownerOptions.find((x) => x.id === ownerId);
-    return o ? `${o.name}${o.email ? ` · ${o.email}` : ""}` : "Select an owner";
+    return o ? `${o.name}${o.email ? ` · ${o.email}` : ""}` : "Selecione o dono do projeto";
   }, [ownerId, ownerOptions]);
 
   const setFieldError = (field: string, message: string) =>
@@ -74,11 +73,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     const nm = name.trim();
     const url = destinationUrl.trim();
 
-    if (!nm || nm.length < 3) e.name = "Name must be at least 3 characters.";
-    if (!ownerId) e.ownerId = "Please select a project owner.";
-    if (!type) e.type = "Please choose a project type.";
-    if (!url) e.destination_url = "Destination URL is required.";
-    else if (!isValidUrl(url)) e.destination_url = "Enter a valid http(s) URL.";
+    if (!nm || nm.length < 3) e.name = "O nome deve ter pelo menos 3 caracteres.";
+    if (!ownerId) e.ownerId = "Selecione o dono do projeto.";
+    if (!type) e.type = "Escolha um tipo de projeto.";
+    if (!url) e.destination_url = "A URL de destino é obrigatória.";
+    else if (!isValidUrl(url)) e.destination_url = "Informe uma URL http(s) válida.";
 
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -96,7 +95,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) {
-      toast.error("Please fix the highlighted fields.");
+      toast.error("Corrija os campos destacados.");
       return;
     }
 
@@ -115,7 +114,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       });
 
       if (error) {
-        // Try to extract the JSON error from the Edge Function
         let serverMsg: string | undefined;
         const resp = (error as any)?.context?.response as Response | undefined;
         if (resp) {
@@ -124,7 +122,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
             serverMsg = typeof j?.error === "string" ? j.error : undefined;
             console.error("admin_create_project error resp", resp.status, j);
           } catch {
-            // ignore json parse errors
+            // ignore
           }
         } else {
           console.error("admin_create_project invoke error", error);
@@ -132,32 +130,31 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
         const msg = serverMsg || "";
 
-        // Map known backend errors to fields
         if (/project with this name already exists/i.test(msg)) {
-          setFieldError("name", "A project with this name already exists.");
+          setFieldError("name", "Já existe um projeto com esse nome.");
         } else if (/destination_url already in use/i.test(msg)) {
-          setFieldError("destination_url", "This destination URL is already in use.");
+          setFieldError("destination_url", "Essa URL de destino já está em uso.");
         } else if (/destination_url must be a valid http\(s\) URL/i.test(msg)) {
-          setFieldError("destination_url", "Enter a valid http(s) URL.");
+          setFieldError("destination_url", "Informe uma URL http(s) válida.");
         } else if (/invalid owner_id .* role 'owner'/i.test(msg)) {
-          setFieldError("ownerId", "Owner must be a profile with role 'owner'.");
+          setFieldError("ownerId", "O dono precisa ser um perfil com papel 'owner'.");
         } else if (/showroom_mode is required/i.test(msg)) {
-          setFieldError("type", "For a content hub, please set showroom mode on/off.");
+          setFieldError("type", "Para hub de conteúdo, defina o showroom ligado/desligado.");
         } else if (/name is required|owner_id is required|type must be/i.test(msg)) {
           toast.error(msg);
         } else {
-          toast.error("Could not create project now, try again later.");
+          toast.error("Não foi possível criar o projeto agora, tente novamente.");
         }
 
-        throw error; // ensure finally runs
+        throw error; // garante o finally
       }
 
-      toast.success("Project created successfully!");
+      toast.success("Projeto criado com sucesso!");
       onCreated?.(data?.project_id ?? "");
       onClose();
       reset();
     } catch {
-      // handled above
+      // já tratado acima
     } finally {
       setLoading(false);
     }
@@ -170,19 +167,19 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         reset();
         onClose();
       }}
-      title="Create New Project"
+      title="Criar novo projeto"
       size="lg"
       initialFocusRef={nameRef}
     >
-      {/* Vertical layout with scrollable body */}
+      {/* Layout vertical com corpo rolável */}
       <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-h-[70vh]">
-        {/* SCROLL CONTAINER */}
+        {/* CONTEÚDO ROLÁVEL */}
         <div className="flex-1 overflow-y-auto pr-1 space-y-6">
-          {/* Name + Owner */}
+          {/* Nome + Dono */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
               ref={nameRef}
-              label="Project Name"
+              label="Nome do projeto"
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
@@ -194,10 +191,10 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               autoComplete="off"
             />
 
-            {/* Owner select */}
+            {/* Select do Dono */}
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-300 uppercase tracking-wider">
-                Project Owner
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+                Dono do projeto
               </label>
               <div className="relative">
                 <select
@@ -206,8 +203,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     setOwnerId(e.target.value);
                     clearFieldError("ownerId");
                   }}
-                  className={`w-full h-11 px-4 pr-10 bg-gray-800/50 backdrop-blur-sm border rounded-xl text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none
-                  ${errors.ownerId ? "border-red-500/70" : "border-gray-700/50 hover:border-gray-600/70"}`}
+                  className={`w-full h-11 px-4 pr-10 rounded-xl border bg-white/70 text-zinc-900
+                             dark:bg-zinc-900/50 dark:text-zinc-100 backdrop-blur-sm
+                             focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none
+                             ${errors.ownerId
+                               ? "border-red-500/70"
+                               : "border-zinc-200/70 hover:border-zinc-300 dark:border-zinc-700/50 dark:hover:border-zinc-600/70"}`}
                 >
                   <option value="">{ownerHint}</option>
                   {(ownerOptions ?? []).map((o) => (
@@ -216,34 +217,35 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 dark:text-zinc-400" />
               </div>
-              {errors.ownerId && <p className="text-xs text-red-400 mt-1">{errors.ownerId}</p>}
-              <p className="text-xs text-gray-500">Set who will own/manage this project.</p>
+              {errors.ownerId && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{errors.ownerId}</p>}
+              <p className="text-xs text-zinc-500 dark:text-zinc-500">Defina quem será o responsável pelo projeto.</p>
             </div>
           </div>
 
-          {/* Destination URL */}
+          {/* URL de destino */}
           <Input
-            label="Destination URL"
+            label="URL de destino"
             value={destinationUrl}
             onChange={(e) => {
               setDestinationUrl(e.target.value);
               clearFieldError("destination_url");
             }}
-            placeholder="https://your-project.com/welcome"
+            placeholder="https://seu-projeto.com/bem-vindo"
             required
             error={errors.destination_url}
             autoComplete="off"
+            iconRight={<ExternalLink className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />}
           />
-          <p className="text-xs text-gray-500 -mt-2">
-            Your project page where users will land from tags.
+          <p className="text-xs -mt-2 text-zinc-600 dark:text-zinc-500">
+            Para onde os usuários serão direcionados ao interagir com as tags.
           </p>
 
-          {/* Type */}
+          {/* Tipo de projeto */}
           <fieldset className="space-y-3">
-            <legend className="block text-sm font-medium text-gray-300 uppercase tracking-wider">
-              Project Type
+            <legend className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+              Tipo de projeto
             </legend>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -251,8 +253,8 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               <label
                 className={`flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition group
                   ${type === "profile_card"
-                    ? "border-blue-500/50 bg-blue-500/10"
-                    : "border-gray-700/50 hover:border-gray-600/70 hover:bg-gray-800/30"}`}
+                    ? "border-blue-500/60 bg-blue-50 dark:border-blue-500/50 dark:bg-blue-500/10"
+                    : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700/50 dark:hover:border-zinc-600/70 dark:hover:bg-zinc-800/30"}`}
               >
                 <input
                   type="radio"
@@ -265,25 +267,25 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                   }}
                 />
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 text-gray-100">
+                  <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
                     <LayoutGrid className="w-4 h-4" />
-                    <span className="font-medium">I wanna offer a Profile Card in this project</span>
+                    <span className="font-medium">Oferecer um Profile Card</span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-1">
-                    A sleek, scannable profile with links, socials, and actions.
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                    Perfil escaneável com links, redes sociais e ações rápidas.
                   </p>
                 </div>
                 <span className="w-5 h-5 flex items-center justify-center">
-                  {type === "profile_card" && <Check className="w-5 h-5 text-blue-400" />}
+                  {type === "profile_card" && <Check className="w-5 h-5 text-blue-500 dark:text-blue-400" />}
                 </span>
               </label>
 
-              {/* Exclusive Club */}
+              {/* Exclusive Club / Hub de conteúdo */}
               <label
                 className={`flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition group
                   ${type === "exclusive_club"
-                    ? "border-blue-500/50 bg-blue-500/10"
-                    : "border-gray-700/50 hover:border-gray-600/70 hover:bg-gray-800/30"}`}
+                    ? "border-blue-500/60 bg-blue-50 dark:border-blue-500/50 dark:bg-blue-500/10"
+                    : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700/50 dark:hover:border-zinc-600/70 dark:hover:bg-zinc-800/30"}`}
               >
                 <input
                   type="radio"
@@ -296,26 +298,57 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                   }}
                 />
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 text-gray-100">
+                  <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
                     <Sparkles className="w-4 h-4" />
-                    <span className="font-medium">I wanna offer a content hub in this project</span>
+                    <span className="font-medium">Hub de conteúdo (Clube exclusivo)</span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-1">
-                    A gated hub of resources (docs, links, videos) with tag-based access.
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                    Área com conteúdo protegido (docs, links, vídeos) e acesso por tags.
                   </p>
                 </div>
                 <span className="w-5 h-5 flex items-center justify-center">
-                  {type === "exclusive_club" && <Check className="w-5 h-5 text-blue-400" />}
+                  {type === "exclusive_club" && <Check className="w-5 h-5 text-blue-500 dark:text-blue-400" />}
+                </span>
+              </label>
+
+              {/* Simple Redirect */}
+              <label
+                className={`flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition group md:col-span-2
+                  ${type === "simple_redirect"
+                    ? "border-blue-500/60 bg-blue-50 dark:border-blue-500/50 dark:bg-blue-500/10"
+                    : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700/50 dark:hover:border-zinc-600/70 dark:hover:bg-zinc-800/30"}`}
+              >
+                <input
+                  type="radio"
+                  name="projectType"
+                  className="mt-1"
+                  checked={type === "simple_redirect"}
+                  onChange={() => {
+                    setType("simple_redirect");
+                    clearFieldError("type");
+                  }}
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+                    <ExternalLink className="w-4 h-4" />
+                    <span className="font-medium">Redirect simples</span>
+                  </div>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                    Cada leitura do tag redireciona diretamente para a URL definida, sem UI extra.
+                  </p>
+                </div>
+                <span className="w-5 h-5 flex items-center justify-center">
+                  {type === "simple_redirect" && <Check className="w-5 h-5 text-blue-500 dark:text-blue-400" />}
                 </span>
               </label>
             </div>
 
-            {errors.type && <p className="text-xs text-red-400">{errors.type}</p>}
+            {errors.type && <p className="text-xs text-red-600 dark:text-red-400">{errors.type}</p>}
           </fieldset>
 
-          {/* Showroom Mode (only for exclusive_club) */}
+          {/* Showroom (somente para hub de conteúdo) */}
           {canShowShowroom && (
-            <div className="rounded-xl border border-gray-700/50 bg-gray-800/40 p-4">
+            <div className="rounded-xl border p-4 border-zinc-200 dark:border-zinc-700/50 bg-zinc-50 dark:bg-zinc-800/40">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -324,9 +357,9 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                   className="mt-1"
                 />
                 <div>
-                  <div className="text-gray-100 font-medium">Is this project a showroom?</div>
-                  <p className="text-sm text-gray-400">
-                    Showroom project tags can have multiple claims/taps.
+                  <div className="text-zinc-900 dark:text-zinc-100 font-medium">Este projeto é um showroom?</div>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    Em showroom, uma mesma tag pode ter múltiplos claims/taps.
                   </p>
                 </div>
               </label>
@@ -334,11 +367,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
           )}
         </div>
 
-        {/* STICKY FOOTER */}
-        <div className="sticky bottom-0 -mx-6 px-6 py-3 border-t border-white/10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur">
+        {/* RODAPÉ FIXO */}
+        <div className="sticky bottom-0 -mx-6 px-6 py-3 border-t bg-white/95 backdrop-blur dark:bg-zinc-900/95 border-zinc-200/80 dark:border-white/10">
           <div className="flex justify-between items-center gap-3">
-            <p className="text-xs text-gray-500">
-              <span className="font-medium">Tip:</span> You can edit details later in project settings.
+            <p className="text-xs text-zinc-600 dark:text-zinc-500">
+              <span className="font-medium">Dica:</span> você pode editar os detalhes depois nas configurações do projeto.
             </p>
             <div className="flex gap-3">
               <Button
@@ -350,10 +383,10 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 }}
                 disabled={loading}
               >
-                Cancel
+                Cancelar
               </Button>
               <Button type="submit" disabled={!isValid || loading}>
-                {loading ? "Creating..." : "Create Project"}
+                {loading ? "Criando..." : "Criar projeto"}
               </Button>
             </div>
           </div>

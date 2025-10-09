@@ -1,7 +1,7 @@
+// src/pages/TagsPage.tsx
 import React from "react";
 import {
-  Plus, Calendar, Hash, RefreshCw, Link as LinkIcon,
-  Shield, Zap, Box, Power, PowerOff, ChevronDown, Users
+  Plus, Calendar, Hash, RefreshCw, Shield, Zap, Box, Users, Copy, Check as CheckIcon, ChevronDown
 } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -9,8 +9,14 @@ import { Modal } from "../components/ui/Modal";
 import toast from "react-hot-toast";
 import { supabase } from "../lib/supabase";
 
-type ProjectLite = { id: string; name: string };
-type AssetLite   = { id: string; name: string | null };
+/* ───────────────── Types ───────────────── */
+type ProjectLite = {
+  id: string;
+  name: string;
+  destination_url?: string | null;
+  type?: "profile_card" | "exclusive_club" | "simple_redirect";
+};
+type AssetLite = { id: string; name: string | null };
 
 type TagRow = {
   id: string;
@@ -22,12 +28,25 @@ type TagRow = {
   status: "active" | "disabled" | "claimed";
   created_at: string;
   updated_at: string | null;
-  projects?: { id: string; name: string } | null;
+  projects?: { id: string; name: string; destination_url?: string | null; type?: string | null } | null;
   assets?: { id: string; name: string | null } | null;
   tag_claims?: Array<{
-    profiles?: { id: string; display_name: string | null; email: string | null } | null;
+    claimed_by_profile_id?: string | null;
+    claimed_at?: string | null;
+    profiles?: {
+      id: string;
+      display_name: string | null;
+      email: string | null;
+      profile_cards?: Array<{ username: string | null }> | null;
+    } | null;
   }> | null;
 };
+
+/* ───────────────── Config ───────────────── */
+const APP_URL =
+  (import.meta as any)?.env?.VITE_APP_URL ||
+  (import.meta as any)?.env?.APP_URL ||
+  "https://tok-chip.vercel.app";
 
 const PUBLIC_ID_RE = /^[A-Za-z0-9\-_]{4,64}$/;
 const normalizeNfc = (s: string) => s.replace(/[^0-9a-fA-F]/g, "").toUpperCase();
@@ -35,20 +54,22 @@ const showEnds = (s: string, start = 6, end = 4) =>
   s.length <= start + end ? s : `${s.slice(0, start)}…${s.slice(-end)}`;
 const fmtBR = (iso: string) => new Date(iso).toLocaleDateString("pt-BR");
 
-/** Reliable edge-invoke with readable error body */
+/** Edge invoke com corpo legível */
 async function invokeEdgeJson(fn: string, body: unknown) {
   const { data: sess } = await supabase.auth.getSession();
   const url = `${supabase.functions.url}/${fn}`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${sess.session?.access_token ?? ""}`,
+      Authorization: `Bearer ${sess.session?.access_token ?? ""}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body ?? {}),
   });
   let json: any = null;
-  try { json = await res.json(); } catch { /* plain text/no body */ }
+  try {
+    json = await res.json();
+  } catch {}
   return { ok: res.ok, status: res.status, json };
 }
 
@@ -59,40 +80,34 @@ export const TagsPage: React.FC = () => {
   const [projects, setProjects] = React.useState<ProjectLite[]>([]);
   const [assets, setAssets] = React.useState<AssetLite[]>([]);
 
-  // header controls
+  // filtros/header
   const [projectFilter, setProjectFilter] = React.useState<string>("");
 
-  // create form
+  // create flow (sem publicId no formulário)
   const [form, setForm] = React.useState({
-    public_id: "",
     nfc_uid: "",
     project_id: "",
     asset_id: "",
     claim_mode: "first_to_claim" as "code" | "secure_tap" | "first_to_claim",
   });
   const [errors, setErrors] = React.useState<Partial<Record<keyof typeof form, string>>>({});
-  const firstFieldRef = React.useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const [postCreateLink, setPostCreateLink] = React.useState<string>(""); // para o modal de sucesso
+  const firstFieldRef = React.useRef<HTMLInputElement>(null);
 
   const isValid = React.useMemo(() => {
     const nfc = normalizeNfc(form.nfc_uid);
-    return (
-      !!form.project_id &&
-      !!form.claim_mode &&
-      !!form.public_id &&
-      PUBLIC_ID_RE.test(form.public_id) &&
-      !!nfc
-    );
+    return !!form.project_id && !!form.claim_mode && !!nfc;
   }, [form]);
 
-  // ----- Loaders -------------------------------------------------------------
+  /* ────────────── Loaders ────────────── */
   const loadProjects = React.useCallback(async () => {
     const { data, error } = await supabase
       .from("projects")
-      .select("id,name")
+      .select("id,name,destination_url,type")
       .order("name", { ascending: true });
     if (error) {
-      toast.error("Failed to load projects.");
+      toast.error("Falha ao carregar projetos.");
       return;
     }
     setProjects((data ?? []) as ProjectLite[]);
@@ -109,10 +124,10 @@ export const TagsPage: React.FC = () => {
       .eq("project_id", projectId)
       .order("name", { ascending: true });
     if (error) {
-      toast.error("Failed to load assets.");
+      toast.error("Falha ao carregar assets.");
       return;
     }
-    setAssets(((data ?? []) as any[]).map(a => ({ id: a.id, name: a.name })) as AssetLite[]);
+    setAssets(((data ?? []) as any[]).map((a) => ({ id: a.id, name: a.name })) as AssetLite[]);
   }, []);
 
   const loadTags = React.useCallback(async () => {
@@ -122,10 +137,14 @@ export const TagsPage: React.FC = () => {
         .from("tags")
         .select(`
           id,project_id,asset_id,public_id,nfc_uid,claim_mode,status,created_at,updated_at,
-          projects(id,name),
+          projects(id,name,destination_url,type),
           assets(id,name),
           tag_claims:tag_claims(
-            profiles:profiles!tag_claims_claimed_by_profile_id_fkey(id, display_name, email)
+            claimed_by_profile_id, claimed_at,
+            profiles:profiles!tag_claims_claimed_by_profile_id_fkey(
+              id, display_name, email,
+              profile_cards:profile_cards!profile_cards_profile_id_fkey(username)
+            )
           )
         `)
         .order("created_at", { ascending: false });
@@ -134,7 +153,7 @@ export const TagsPage: React.FC = () => {
 
       const { data, error } = await query;
       if (error) {
-        toast.error("Failed to load tags.");
+        toast.error("Falha ao carregar tags.");
         return;
       }
       setTags((data ?? []) as TagRow[]);
@@ -143,58 +162,26 @@ export const TagsPage: React.FC = () => {
     }
   }, [projectFilter]);
 
-  React.useEffect(() => { loadProjects(); }, [loadProjects]);
-  React.useEffect(() => { loadTags(); }, [loadTags]);
-  React.useEffect(() => { loadAssetsForProject(form.project_id); }, [form.project_id, loadAssetsForProject]);
+  React.useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+  React.useEffect(() => {
+    loadTags();
+  }, [loadTags]);
+  React.useEffect(() => {
+    loadAssetsForProject(form.project_id);
+  }, [form.project_id, loadAssetsForProject]);
 
-  // ----- Row action: disable / enable ----------------------------------------
-  const toggleStatus = async (row: TagRow) => {
-    const next = row.status === "disabled" ? "active" : "disabled";
+  /* ────────────── Helpers ────────────── */
+  const copy = async (text: string) => {
     try {
-      const { error } = await supabase.from("tags").update({ status: next }).eq("id", row.id);
-      if (error) throw error;
-      toast.success(`Tag ${next === "disabled" ? "disabled" : "enabled"}.`);
-      await loadTags();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to update status.");
+      await navigator.clipboard.writeText(text);
+      toast.success("Copiado!");
+    } catch {
+      toast.error("Não foi possível copiar.");
     }
   };
 
-  // ----- Reusable Select (custom chevron) ------------------------------------
-  const Select: React.FC<
-    React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string; error?: string }
-  > = ({ label, error, className = "", children, ...rest }) => (
-    <label className="grid gap-1.5">
-      {label && (
-        <span className="text-xs uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-          {label}
-        </span>
-      )}
-      <div className="relative">
-        <select
-          {...rest}
-          className={[
-            "appearance-none w-full pr-10 pl-3 py-2 rounded-lg",
-            "bg-white dark:bg-zinc-900 border",
-            error
-              ? "border-red-500 focus:ring-2 focus:ring-red-400"
-              : "border-zinc-300 dark:border-zinc-700 focus:ring-2 focus:ring-blue-500",
-            "text-zinc-900 dark:text-zinc-100 outline-none transition",
-            className,
-          ].join(" ")}
-        >
-          {children}
-        </select>
-        <ChevronDown
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500"
-          aria-hidden
-        />
-      </div>
-      {error && <span className="text-xs text-red-600">{error}</span>}
-    </label>
-  );
-
-  // ----- Helpers --------------------------------------------------------------
   const claimedByText = (t: TagRow) => {
     const claims = Array.isArray(t.tag_claims) ? t.tag_claims : [];
     const names: string[] = [];
@@ -210,35 +197,89 @@ export const TagsPage: React.FC = () => {
     return { text, title: text };
   };
 
-  // ----- Create flow ----------------------------------------------------------
+  const usernameFromClaims = (t: TagRow): string | null => {
+    if (!t.tag_claims?.length) return null;
+    const sorted = [...t.tag_claims]
+      .sort((a, b) => (a.claimed_at ?? "").localeCompare(b.claimed_at ?? ""))
+      .reverse();
+    for (const c of sorted) {
+      const prof = c.profiles;
+      const username = prof?.profile_cards?.[0]?.username ?? null;
+      if (username) return username;
+    }
+    return null;
+  };
+
+  const publicLinkFor = (t: Pick<TagRow, "public_id">) =>
+    `${APP_URL.replace(/\/+$/, "")}/t/${t.public_id}`;
+
+  const currentRedirectFor = (t: TagRow): string => {
+    const base = (t.projects?.destination_url || "").replace(/\/+$/, "");
+    const type = (t.projects?.type || "") as string;
+    if (!base) return "—";
+
+    if (type === "simple_redirect") return base;
+
+    if (type === "profile_card") {
+      if (t.status === "claimed") {
+        const uname = usernameFromClaims(t);
+        return uname ? `${base}/p/${uname}` : `${base}/p/{username}`;
+      }
+      return `${base}/t/{token}`;
+    }
+    return `${base}/t/{token}`;
+  };
+
+  const toggleStatus = async (row: TagRow) => {
+    const next = row.status === "disabled" ? "active" : "disabled";
+    try {
+      const { error } = await supabase.from("tags").update({ status: next }).eq("id", row.id);
+      if (error) throw error;
+      toast.success(`Tag ${next === "disabled" ? "ativada" : "desativada"}.`);
+      await loadTags();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Falha ao atualizar status.");
+    }
+  };
+
+  /* ────────────── Create flow ────────────── */
   const onOpen = () => {
-    setForm({ public_id: "", nfc_uid: "", project_id: "", asset_id: "", claim_mode: "first_to_claim" });
+    setForm({ nfc_uid: "", project_id: "", asset_id: "", claim_mode: "first_to_claim" });
     setErrors({});
     setAssets([]);
+    setPostCreateLink("");
     setIsModalOpen(true);
   };
 
-  const validate = (): boolean => {
+  const validatePhase = (): boolean => {
     const next: Partial<Record<keyof typeof form, string>> = {};
-    if (!form.project_id) next.project_id = "Project is required.";
-    if (!form.public_id || !PUBLIC_ID_RE.test(form.public_id)) next.public_id = "4–64 chars, letters/numbers/“-”/“_” only.";
+    if (!form.project_id) next.project_id = "Projeto é obrigatório.";
     const nfc = normalizeNfc(form.nfc_uid);
-    if (!nfc) next.nfc_uid = "Provide a valid hex UID.";
-    if (!form.claim_mode) next.claim_mode = "Claim mode is required.";
+    if (!nfc) next.nfc_uid = "Informe um NFC UID (hex) válido.";
+    if (!form.claim_mode) next.claim_mode = "Modo de claim é obrigatório.";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validatePhase()) return;
 
     setSubmitting(true);
     try {
+      // 1) gera public_id via RPC
+      const { data: pidData, error: pidErr } = await supabase.rpc("rpc_generate_public_id", { len: 10 });
+      if (pidErr) throw pidErr;
+      const public_id: string = (pidData as any) ?? "";
+      if (!public_id || !PUBLIC_ID_RE.test(public_id)) {
+        throw new Error("Falha ao gerar public_id.");
+      }
+
+      // 2) cria a tag via Edge
       const body = {
         project_id: form.project_id.trim(),
         asset_id: form.asset_id?.trim() || null,
-        public_id: form.public_id.trim(),
+        public_id,
         nfc_uid: normalizeNfc(form.nfc_uid.trim()),
         claim_mode: form.claim_mode,
       };
@@ -250,164 +291,215 @@ export const TagsPage: React.FC = () => {
           json?.error || json?.message || json?.msg || `Edge function error (${status})`;
 
         if (/public_id already exists/i.test(serverMsg)) {
-          setErrors((e) => ({ ...e, public_id: "This public_id is already in use." }));
+          toast.error("public_id já está em uso. Tente novamente.");
         } else if (/nfc_uid already in use/i.test(serverMsg)) {
-          setErrors((e) => ({ ...e, nfc_uid: "This NFC UID is already in use." }));
-        } else if (/public_id must match/i.test(serverMsg)) {
-          setErrors((e) => ({ ...e, public_id: "Invalid public_id pattern." }));
+          setErrors((e) => ({ ...e, nfc_uid: "Este NFC UID já está em uso." }));
         } else if (/nfc_uid is required/i.test(serverMsg)) {
-          setErrors((e) => ({ ...e, nfc_uid: "Provide a valid NFC UID." }));
+          setErrors((e) => ({ ...e, nfc_uid: "Informe um NFC UID válido." }));
         } else if (/asset_id must belong/i.test(serverMsg)) {
-          setErrors((e) => ({ ...e, asset_id: "Asset must belong to selected project." }));
+          setErrors((e) => ({ ...e, asset_id: "O asset deve pertencer ao projeto selecionado." }));
         } else if (/invalid project_id/i.test(serverMsg)) {
-          setErrors((e) => ({ ...e, project_id: "Invalid project." }));
+          setErrors((e) => ({ ...e, project_id: "Projeto inválido." }));
         } else if (/invalid asset_id/i.test(serverMsg)) {
-          setErrors((e) => ({ ...e, asset_id: "Invalid asset." }));
+          setErrors((e) => ({ ...e, asset_id: "Asset inválido." }));
         } else if (/claim_mode must be one of/i.test(serverMsg)) {
-          setErrors((e) => ({ ...e, claim_mode: "Unsupported claim mode." }));
-        } else if (/Auth required|Forbidden/i.test(serverMsg)) {
-          toast.error(serverMsg);
+          setErrors((e) => ({ ...e, claim_mode: "Modo de claim não suportado." }));
         } else {
           toast.error(serverMsg);
         }
         return;
       }
 
-      toast.success("Tag created!");
-      setIsModalOpen(false);
-      setForm({ public_id: "", nfc_uid: "", project_id: "", asset_id: "", claim_mode: "secure_tap" });
+      const link = `${APP_URL.replace(/\/+$/, "")}/t/${public_id}`;
+      setPostCreateLink(link);
+      toast.success("Tag criada! Cadastre o link no chip.");
       await loadTags();
     } catch (err: any) {
-      const fallback = err?.message ?? "Failed to create tag.";
-      toast.error(fallback);
+      toast.error(err?.message ?? "Falha ao criar tag.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // ----- UI ------------------------------------------------------------------
+  /* ────────────── UI ────────────── */
   return (
     <div className="p-6 bg-gray-50 dark:bg-gray-950 min-h-screen">
       {/* Title */}
       <div className="mb-2">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Tags</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Manage all tags</p>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">Gerencie todas as tags</p>
       </div>
 
-      {/* Header controls: left = project select, right = actions */}
+      {/* Header */}
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div className="w-full md:w-auto">
           <div className="w-60">
-            <Select
-              value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
-            >
-              <option value="">All projects</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </Select>
+            <label className="grid gap-1.5">
+              <span className="text-xs uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Projeto</span>
+              <div className="relative">
+                <select
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value)}
+                  className="appearance-none w-full pr-10 pl-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="">Todos os projetos</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              </div>
+            </label>
           </div>
         </div>
 
         <div className="flex items-center gap-2 self-end">
-          <Button variant="secondary" onClick={loadTags} disabled={loading} title="Refresh">
+          <Button variant="secondary" onClick={loadTags} disabled={loading} title="Recarregar">
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+            Recarregar
           </Button>
           <Button onClick={onOpen}>
             <Plus className="w-4 h-4 mr-2" />
-            New Tag
+            Nova Tag
           </Button>
         </div>
       </div>
 
-      {/* Table (sem rolagem lateral; manter linhas únicas onde possível) */}
+      {/* Tabela */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden shadow-sm">
         <div className="overflow-visible">
           <table className="w-full table-auto">
             <thead className="bg-gray-100 dark:bg-gray-800">
               <tr>
-                {/* ID removido */}
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Public ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">NFC UID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Claim Mode</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Project</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Asset</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Claimed by</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Created</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  Dados da tag
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  Claim Mode
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  Projeto/Asset
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  Claimed por
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                  Redirect atual
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
               {tags.map((t) => {
                 const claim = claimedByText(t);
+                const link = publicLinkFor(t);
+                const redirect = currentRedirectFor(t);
+
                 return (
                   <tr key={t.id} className="hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
-                    {/* Public ID — preferir uma linha, encurtando visual */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center min-w-0">
-                        <Hash className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2 shrink-0" />
-                        <span className="text-sm text-gray-900 dark:text-gray-100 font-medium truncate" title={t.public_id}>
-                          {showEnds(t.public_id, 10, 6)}
-                        </span>
+                    {/* Dados da tag (UID + link + criada em) */}
+                    <td className="px-6 py-4 align-top">
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <div className="text-xs text-zinc-600 dark:text-zinc-300">
+                          <span className="uppercase tracking-wider">CHIP UID:</span>{" "}
+                          <code title={t.nfc_uid}>{showEnds(t.nfc_uid, 8, 6)}</code>
+                        </div>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <a
+                            href={link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[22rem]"
+                            title={link}
+                          >
+                            {link}
+                          </a>
+                          <button
+                            type="button"
+                            className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            onClick={() => copy(link)}
+                            title="Copiar link público"
+                          >
+                            <Copy className="w-4 h-4 text-zinc-500" />
+                          </button>
+                        </div>
+                        <div className="text-xs text-zinc-600 dark:text-zinc-400 flex items-center">
+                          <Calendar className="w-3.5 h-3.5 mr-1.5 text-zinc-500 dark:text-zinc-500" />
+                          criada em {fmtBR(t.created_at)}
+                        </div>
                       </div>
                     </td>
 
-                    {/* NFC UID — NÃO PODE quebrar */}
-                    <td className="px-6 py-4 text-sm">
-                      <div className="flex items-center text-gray-700 dark:text-gray-200 min-w-0 max-w-[12rem] overflow-hidden">
-                        <LinkIcon className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500 shrink-0" />
-                        <code className="text-xs whitespace-nowrap truncate" title={t.nfc_uid}>
-                          {showEnds(t.nfc_uid, 8, 6)}
-                        </code>
-                      </div>
-                    </td>
-
+                    {/* Claim mode */}
                     <td className="px-6 py-4 text-sm whitespace-nowrap">
                       <div className="flex items-center text-gray-700 dark:text-gray-200">
-                        {t.claim_mode === "secure_tap" ? <Shield className="w-4 h-4 mr-2" /> : t.claim_mode === "code" ? <Hash className="w-4 h-4 mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                        {t.claim_mode === "secure_tap" ? (
+                          <Shield className="w-4 h-4 mr-2" />
+                        ) : t.claim_mode === "code" ? (
+                          <Hash className="w-4 h-4 mr-2" />
+                        ) : (
+                          <Zap className="w-4 h-4 mr-2" />
+                        )}
                         <span className="uppercase text-xs tracking-wider">{t.claim_mode}</span>
                       </div>
                     </td>
 
+                    {/* Status + ativar/desativar (texto sem fundo) */}
                     <td className="px-6 py-4 text-sm whitespace-nowrap">
-                      <span
-                        className={[
-                          "px-2 py-1 rounded-md text-xs font-medium",
-                          t.status === "active"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
-                            : t.status === "claimed"
-                            ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300"
-                            : "bg-zinc-100 text-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300 ring-1 ring-red-400/50",
-                        ].join(" ")}
-                      >
-                        {t.status}
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                      {t.projects?.name ?? "—"}
-                    </td>
-
-                    {/* Asset — pode quebrar uma linha se necessário */}
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                      <div className="flex items-center min-w-0">
-                        <Box className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500 shrink-0" />
-                        <span className="block max-w-[18rem] whitespace-normal break-words" title={t.assets?.name ?? undefined}>
-                          {t.assets?.name ?? "—"}
+                      <div className="flex flex-col items-start gap-2">
+                        <span
+                          className={[
+                            "px-2 py-1 rounded-md text-xs font-medium",
+                            t.status === "active"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+                              : t.status === "claimed"
+                              ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300"
+                              : "bg-zinc-100 text-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300 ring-1 ring-red-400/50",
+                          ].join(" ")}
+                        >
+                          {t.status}
                         </span>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleStatus(t)}
+                          className="text-xs underline text-black dark:text-white hover:opacity-80"
+                          title={t.status === "disabled" ? "Ativar" : "Desativar"}
+                        >
+                          {t.status === "disabled" ? "Ativar?" : "Desativar?"}
+                        </button>
                       </div>
                     </td>
 
-                    {/* Claimed by — comma separated; pode quebrar se faltar espaço */}
+                    {/* Projeto/Asset (asset na linha de baixo; “Sem asset” quando nulo) */}
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate max-w-[18rem]" title={t.projects?.name ?? undefined}>
+                          {t.projects?.name ?? "—"}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-zinc-700 dark:text-zinc-300 min-w-0">
+                          <Box className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
+                          <span
+                            className="block max-w-[18rem] whitespace-normal break-words"
+                            title={t.assets?.name ?? undefined}
+                          >
+                            {t.assets?.name ?? "Sem asset"}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Claimed por — branco no tema escuro */}
                     <td className="px-6 py-4 text-sm align-top">
                       {claim.text ? (
                         <div className="flex items-start gap-2 min-w-0">
                           <Users className="w-4 h-4 mt-0.5 text-gray-400 dark:text-gray-500 shrink-0" />
                           <span
-                            className="block max-w-[28rem] whitespace-normal break-words leading-snug"
+                            className="block max-w-[28rem] whitespace-normal break-words leading-snug text-gray-900 dark:text-white"
                             title={claim.title}
                           >
                             {claim.text}
@@ -418,19 +510,31 @@ export const TagsPage: React.FC = () => {
                       )}
                     </td>
 
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                        <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500" />
-                        {fmtBR(t.created_at)}
-                      </div>
-                    </td>
-
+                    {/* Redirect atual */}
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="secondary" onClick={() => toggleStatus(t)} title={t.status === "disabled" ? "Enable" : "Disable"}>
-                          {t.status === "disabled" ? (<><Power className="w-4 h-4 mr-2" /> Enable</>) : (<><PowerOff className="w-4 h-4 mr-2" /> Disable</>)}
-                        </Button>
-                      </div>
+                      {redirect !== "—" ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <a
+                            href={redirect.replace("{token}", "token").replace("{username}", "username")}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline max-w-[22rem] truncate"
+                            title={redirect}
+                          >
+                            {redirect}
+                          </a>
+                          <button
+                            type="button"
+                            className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            onClick={() => copy(redirect)}
+                            title="Copiar redirect atual"
+                          >
+                            <Copy className="w-4 h-4 text-zinc-500" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 dark:text-gray-400">—</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -438,8 +542,8 @@ export const TagsPage: React.FC = () => {
 
               {!loading && tags.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-6 py-10 text-center text-sm text-gray-600 dark:text-gray-400">
-                    No tags found.
+                  <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-600 dark:text-gray-400">
+                    Nenhuma tag encontrada.
                   </td>
                 </tr>
               )}
@@ -448,111 +552,167 @@ export const TagsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Create modal */}
+      {/* Modal criar: sem publicId visível; gera no submit e mostra sucesso */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Create Tag"
+        title="Cadastrar Tag"
         size="lg"
         initialFocusRef={firstFieldRef}
       >
-        <form onSubmit={submit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <Input
-                ref={firstFieldRef as any}
-                label="Public ID"
-                value={form.public_id}
-                onChange={(e) => {
-                  setForm({ ...form, public_id: e.target.value });
-                  setErrors((x) => ({ ...x, public_id: undefined }));
-                }}
-                placeholder="e.g. VIP-ALPHA-001"
-                required
-                error={errors.public_id}
-                autoComplete="off"
-              />
-              <p className="mt-1 text-xs text-zinc-500">Allowed: letters, numbers, “-”, “_” (4–64 chars).</p>
+        {postCreateLink ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+              <CheckIcon className="w-5 h-5" />
+              <span className="font-medium">Tag criada com sucesso!</span>
             </div>
-
-            <div>
-              <Input
-                label="NFC UID (hex)"
-                value={form.nfc_uid}
-                onChange={(e) => {
-                  setForm({ ...form, nfc_uid: e.target.value });
-                  setErrors((x) => ({ ...x, nfc_uid: undefined }));
-                }}
-                placeholder="AA BB CC DD or AABBCCDD"
-                required
-                error={errors.nfc_uid}
-                autoComplete="off"
-              />
-              <p className="mt-1 text-xs text-zinc-500">We’ll normalize to uppercase hex (non-hex chars ignored).</p>
+            <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 bg-zinc-50 dark:bg-zinc-900/40">
+              <div className="text-sm text-zinc-700 dark:text-zinc-200">Cadastre este link público no chip:</div>
+              <div className="mt-2 flex items-center gap-2">
+                <a
+                  href={postCreateLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+                >
+                  {postCreateLink}
+                </a>
+                <button
+                  type="button"
+                  className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  onClick={() => copy(postCreateLink)}
+                >
+                  <Copy className="w-4 h-4 text-zinc-500" />
+                </button>
+              </div>
             </div>
-
-            <div>
-              <Select
-                label="Project"
-                value={form.project_id}
-                onChange={(e) => {
-                  setForm({ ...form, project_id: e.target.value, asset_id: "" });
-                  setErrors((x) => ({ ...x, project_id: undefined }));
-                }}
-                error={errors.project_id}
-                required
-              >
-                <option value="">Select a project</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </Select>
-            </div>
-
-            <div>
-              <Select
-                label="Asset (optional)"
-                value={form.asset_id}
-                onChange={(e) => {
-                  setForm({ ...form, asset_id: e.target.value });
-                  setErrors((x) => ({ ...x, asset_id: undefined }));
-                }}
-                error={errors.asset_id}
-              >
-                <option value="">No asset</option>
-                {assets.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name ?? a.id}</option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="md:col-span-2">
-              <Select
-                label="Claim Mode"
-                value={form.claim_mode}
-                onChange={(e) => {
-                  setForm({ ...form, claim_mode: e.target.value as any });
-                  setErrors((x) => ({ ...x, claim_mode: undefined }));
-                }}
-                error={errors.claim_mode}
-                required
-              >
-                <option value="first_to_claim">first_to_claim</option>
-                <option value="secure_tap" disabled>secure_tap (em breve)</option>
-                <option value="code" disabled>code (em breve)</option>
-              </Select>
+            <div className="flex justify-end">
+              <Button onClick={() => setIsModalOpen(false)}>Fechar</Button>
             </div>
           </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <Input
+                  ref={firstFieldRef as any}
+                  label="NFC UID (hex)"
+                  value={form.nfc_uid}
+                  onChange={(e) => {
+                    setForm({ ...form, nfc_uid: e.target.value });
+                    setErrors((x) => ({ ...x, nfc_uid: undefined }));
+                  }}
+                  placeholder="AA BB CC DD ou AABBCCDD"
+                  required
+                  error={errors.nfc_uid}
+                  autoComplete="off"
+                />
+                <p className="mt-1 text-xs text-zinc-500">
+                  Vamos normalizar para hex maiúsculo (ignoramos não-hex).
+                </p>
+              </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!isValid || submitting}>
-              {submitting ? "Creating…" : "Create Tag"}
-            </Button>
-          </div>
-        </form>
+              <div>
+                <label className="grid gap-1.5">
+                  <span className="text-xs uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                    Projeto
+                  </span>
+                  <div className="relative">
+                    <select
+                      value={form.project_id}
+                      onChange={(e) => {
+                        setForm({ ...form, project_id: e.target.value, asset_id: "" });
+                        setErrors((x) => ({ ...x, project_id: undefined }));
+                      }}
+                      className="appearance-none w-full pr-10 pl-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 outline-none"
+                      required
+                    >
+                      <option value="">Selecione um projeto</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                  </div>
+                </label>
+                {errors.project_id && (
+                  <p className="text-xs text-red-600 mt-1">{errors.project_id}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="grid gap-1.5">
+                  <span className="text-xs uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                    Asset (opcional)
+                  </span>
+                  <div className="relative">
+                    <select
+                      value={form.asset_id}
+                      onChange={(e) => {
+                        setForm({ ...form, asset_id: e.target.value });
+                        setErrors((x) => ({ ...x, asset_id: undefined }));
+                      }}
+                      className="appearance-none w-full pr-10 pl-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="">Sem asset</option>
+                      {assets.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name ?? a.id}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                  </div>
+                </label>
+                {errors.asset_id && (
+                  <p className="text-xs text-red-600 mt-1">{errors.asset_id}</p>
+                )}
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="grid gap-1.5">
+                  <span className="text-xs uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                    Modo de claim
+                  </span>
+                  <div className="relative">
+                    <select
+                      value={form.claim_mode}
+                      onChange={(e) => {
+                        setForm({ ...form, claim_mode: e.target.value as any });
+                        setErrors((x) => ({ ...x, claim_mode: undefined }));
+                      }}
+                      className="appearance-none w-full pr-10 pl-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 outline-none"
+                      required
+                    >
+                      <option value="first_to_claim">first_to_claim</option>
+                      <option value="secure_tap" disabled>
+                        secure_tap (em breve)
+                      </option>
+                      <option value="code" disabled>
+                        code (em breve)
+                      </option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                  </div>
+                </label>
+                {errors.claim_mode && (
+                  <p className="text-xs text-red-600 mt-1">{errors.claim_mode}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={!isValid || submitting}>
+                {submitting ? "Criando…" : "Criar Tag"}
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );
