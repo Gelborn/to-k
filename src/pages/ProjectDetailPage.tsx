@@ -11,15 +11,24 @@ import { CustomersTab } from "../components/Projects/tabs/CustomersTab"; // ⬅�
 
 type ProjectType = "profile_card" | "exclusive_club" | "simple_redirect";
 
+// src/pages/ProjectDetailPage.tsx
 export type UiProject = {
   id: string;
   name: string;
-  type: ProjectType;
-  showroom_mode: boolean;
-  destination_url: string | null;
+  type: "profile_card" | "exclusive_club" | "simple_redirect";
+  showroom_mode?: boolean;
+  destination_url?: string | null;
   created_at: string;
+  updated_at?: string | null;
+
+  // 👇 novos
+  project_img?: string | null;
+  description?: string | null;
+  // legado / extras
   icon?: string | null;
   owners: string[];
+  customersCount?: number;
+  lastActivityAt?: string | null;
 };
 
 export const ProjectDetailPage: React.FC = () => {
@@ -41,7 +50,7 @@ export const ProjectDetailPage: React.FC = () => {
       .from("projects")
       .select(
         `
-        id, name, type, showroom_mode, destination_url, created_at, icon,
+        id, name, type, showroom_mode, destination_url, created_at, icon, project_img, description, 
         project_owners(
           profile_id,
           profiles(display_name)
@@ -63,8 +72,8 @@ export const ProjectDetailPage: React.FC = () => {
     }
 
     const owners =
-      (data.project_owners ?? [])
-        .map((po: any) => po.profiles?.display_name || po.profile_id) ?? [];
+    (data.project_owners ?? [])
+      .map((po: any) => po.profiles?.display_name || po.profile_id) ?? [];
 
     setProject({
       id: data.id,
@@ -73,9 +82,16 @@ export const ProjectDetailPage: React.FC = () => {
       showroom_mode: !!data.showroom_mode,
       destination_url: data.destination_url ?? null,
       created_at: data.created_at,
+      updated_at: data.updated_at ?? null,    // 👈 se adicionou no select
       icon: data.icon ?? null,
+
+      // 👇 ESSENCIAL
+      project_img: data.project_img ?? null,
+      description: data.description ?? null,
+
       owners,
     });
+
     setLoading(false);
   }, [id]);
 

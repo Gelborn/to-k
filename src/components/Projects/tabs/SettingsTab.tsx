@@ -3,55 +3,148 @@ import type { UiProject } from "../../../pages/ProjectDetailPage";
 import { Input } from "../../ui/Input";
 import { supabase } from "../../../lib/supabase";
 import toast from "react-hot-toast";
-import { X, Save } from "lucide-react";
+import { X, Save, UploadCloud, Link2, Image as ImageIcon } from "lucide-react";
+
+type ImgMode = "none" | "url" | "upload";
 
 export const SettingsTab: React.FC<{
   project: UiProject;
   onUpdated?: () => void;
 }> = ({ project, onUpdated }) => {
-  // ---------- Local state (editable fields) ----------
+  // ---------- Local state ----------
   const [name, setName] = React.useState(project.name);
   const [dest, setDest] = React.useState(project.destination_url || "");
-  const [saving, setSaving] = React.useState(false);
+  const [description, setDescription] = React.useState(project.description || "");
 
-  // modal delete indisponível
+  // imagem
+  const [imgMode, setImgMode] = React.useState<ImgMode>("none");
+  const [imgUrl, setImgUrl] = React.useState("");
+  const [file, setFile] = React.useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+  const [removeImage, setRemoveImage] = React.useState(false);
+
+  const [saving, setSaving] = React.useState(false);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
 
-  // detectar "dirty"
+  React.useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  // ---------- Helpers ----------
+  const isValidUrl = (v: string) => {
+    try {
+      const u = new URL(v.trim());
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
+  function extFromMime(mime: string): string {
+    if (mime === "image/webp") return ".webp";
+    if (mime === "image/png") return ".png";
+    if (mime === "image/jpeg" || mime === "image/jpg") return ".jpg";
+    if (mime === "image/gif") return ".gif";
+    return "";
+  }
+
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    if (!f) {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setFile(null);
+      setPreviewUrl(null);
+      return;
+    }
+    if (!f.type.startsWith("image/")) return toast.error("Selecione uma imagem (PNG, JPG, WEBP...)");
+    if (f.size > 10 * 1024 * 1024) return toast.error("Imagem até 10MB.");
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setFile(f);
+    setPreviewUrl(URL.createObjectURL(f));
+    setRemoveImage(false);
+  }
+
+  // ---------- Dirty detection ----------
   const dirty =
     name.trim() !== (project.name ?? "").trim() ||
-    (dest || "").trim() !== (project.destination_url || "").trim();
+    (dest || "").trim() !== (project.destination_url || "").trim() ||
+    (description || "").trim() !== (project.description || "").trim() ||
+    removeImage ||
+    (imgMode === "url" && imgUrl.trim() && imgUrl.trim() !== (project.project_img || "")) ||
+    (imgMode === "upload" && !!file);
 
-  // ---------- Labels ----------
+  // ---------- Save handler ----------
+  const handleSave = async () => {
+    if (!dirty) return;
+
+    // URL validations
+    if (dest.trim() && !isValidUrl(dest)) {
+      toast.error("Destination URL inválida. Use http(s).");
+      return;
+    }
+    if (imgMode === "url" && imgUrl.trim() && !isValidUrl(imgUrl)) {
+      toast.error("Link da imagem inválido. Use http(s).");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // 1) Se houver upload, sobe primeiro e captura a publicUrl
+      let project_img_to_set: string | null | undefined = undefined;
+
+      if (removeImage) {
+        project_img_to_set = null;
+      }
+
+      if (imgMode === "upload" && file) {
+        const ext =
+          extFromMime(file.type) || (file.name.match(/\.[a-z0-9]+$/i)?.[0] ?? ".jpg");
+        const objectPath = `${project.id}/project-cover${ext}`;
+
+        const up = await supabase.storage.from("asset-images").upload(objectPath, file, { upsert: true });
+        if (up.error) throw new Error(`Falha ao subir imagem: ${up.error.message}`);
+
+        const { data: pub } = supabase.storage.from("asset-images").getPublicUrl(objectPath);
+        project_img_to_set = pub?.publicUrl ?? null;
+      } else if (imgMode === "url") {
+        // se informou um link, seta; se deixou vazio, não mexe (a não ser que removeImage esteja true)
+        if (imgUrl.trim()) project_img_to_set = imgUrl.trim();
+      }
+
+      // 2) Atualiza o projeto com os campos editados
+      const updatePayload: any = {
+        name: name.trim(),
+        destination_url: dest.trim() || null,
+        description: description.trim() || null,
+      };
+      if (project_img_to_set !== undefined) updatePayload.project_img = project_img_to_set;
+
+      const { error } = await supabase.from("projects").update(updatePayload).eq("id", project.id);
+      if (error) throw error;
+
+      toast.success("Alterações salvas com sucesso.");
+      onUpdated?.();
+
+      // reset de estados voláteis
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+      setFile(null);
+      setImgMode("none");
+      setImgUrl("");
+      setRemoveImage(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || "Falha ao salvar alterações.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ---------- UI ----------
   const projectTypeLabel =
     project.type === "exclusive_club"
       ? "Content hub"
       : project.type === "profile_card"
       ? "Profile card"
       : "Redirect Simples";
-
-  // ---------- Save handler ----------
-  const handleSave = async () => {
-    if (!dirty) return;
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from("projects")
-        .update({
-          name: name.trim(),
-          destination_url: dest.trim() || null,
-        })
-        .eq("id", project.id);
-
-      if (error) throw error;
-      toast.success("Alterações salvas com sucesso.");
-      onUpdated?.();
-    } catch (err: any) {
-      toast.error(err?.message || "Falha ao salvar alterações.");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <div className="space-y-6 relative">
@@ -110,6 +203,143 @@ export const SettingsTab: React.FC<{
               value={project.showroom_mode ? "On" : "Off"}
               readOnly
             />
+          )}
+        </div>
+
+        {/* Description */}
+        <div className="mt-6 space-y-1">
+          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-widest">
+            Description
+          </label>
+          <textarea
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Breve texto sobre o projeto."
+            className="w-full px-4 py-3 bg-white dark:bg-gray-800/50 backdrop-blur-sm border border-gray-300 dark:border-gray-700/50 rounded-xl text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          />
+        </div>
+
+        {/* Project image */}
+        <div className="mt-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-widest">
+              Project Image (cover)
+            </label>
+
+            {/* Segment control */}
+            <div className="inline-flex rounded-xl border border-zinc-200 dark:border-zinc-700/50 overflow-hidden">
+              {[
+                { k: "none", l: "Nenhuma" },
+                { k: "url", l: "Link" },
+                { k: "upload", l: "Upload" },
+              ].map((o) => (
+                <button
+                  key={o.k}
+                  type="button"
+                  onClick={() => {
+                    setImgMode(o.k as ImgMode);
+                    if (o.k !== "upload") {
+                      if (previewUrl) URL.revokeObjectURL(previewUrl);
+                      setFile(null);
+                      setPreviewUrl(null);
+                    }
+                    if (o.k !== "url") setImgUrl("");
+                    setRemoveImage(false);
+                  }}
+                  className={`px-3 py-1.5 text-xs font-medium transition
+                    ${imgMode === o.k
+                      ? "bg-blue-600 text-white"
+                      : "bg-white/70 dark:bg-zinc-900/40 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"}`}
+                >
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Current image */}
+          {project.project_img && !previewUrl && imgMode !== "url" && (
+            <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700/60">
+              <img src={project.project_img} alt="Atual" className="w-full h-40 object-cover" />
+            </div>
+          )}
+
+          {/* Mode: URL */}
+          {imgMode === "url" && (
+            <Input
+              label={
+                <span className="inline-flex items-center gap-2">
+                  <Link2 className="w-4 h-4 text-zinc-500" />
+                  Link da imagem
+                </span>
+              }
+              value={imgUrl}
+              onChange={(e) => setImgUrl(e.target.value)}
+              placeholder="https://cdn.exemplo.com/cover.jpg"
+              autoComplete="off"
+            />
+          )}
+
+          {/* Mode: Upload */}
+          {imgMode === "upload" && (
+            <>
+              {previewUrl ? (
+                <div className="relative">
+                  <img
+                    src={previewUrl}
+                    alt="Pré-visualização"
+                    className="w-full h-44 object-cover rounded-xl border border-gray-200 dark:border-gray-700/60"
+                  />
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-xs text-gray-500">
+                      {file?.name} ({Math.round((file?.size ?? 0) / 1024)} KB)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (previewUrl) URL.revokeObjectURL(previewUrl);
+                        setFile(null);
+                        setPreviewUrl(null);
+                      }}
+                      className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                    >
+                      Remover imagem
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="w-full flex flex-col items-center justify-center px-6 py-8 border-2 border-dashed rounded-xl cursor-pointer border-gray-300 dark:border-gray-700/50 hover:border-blue-400 dark:hover:border-blue-500/60 transition-colors">
+                  <input type="file" accept="image/*" className="hidden" onChange={onPickFile} />
+                  <UploadCloud className="w-8 h-8 text-gray-400 mb-2" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Clique para selecionar uma imagem</span>
+                  <span className="text-xs text-gray-500 mt-1">PNG, JPG, WEBP até 10MB</span>
+                </label>
+              )}
+            </>
+          )}
+
+          {/* Remove current image */}
+          {project.project_img && imgMode !== "upload" && (
+            <button
+              type="button"
+              onClick={() => {
+                setRemoveImage((v) => !v);
+                if (previewUrl) {
+                  URL.revokeObjectURL(previewUrl);
+                  setPreviewUrl(null);
+                  setFile(null);
+                }
+                setImgUrl("");
+              }}
+              className={`inline-flex items-center gap-2 text-sm font-semibold rounded-xl px-3 py-2 border transition
+                ${removeImage
+                  ? "border-red-300 text-red-700 dark:border-red-800/60 dark:text-red-400 bg-red-50 dark:bg-red-900/20"
+                  : "border-zinc-300 text-zinc-700 dark:border-zinc-700/60 dark:text-zinc-200 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40"}`}
+            >
+              <ImageIcon className="w-4 h-4" />
+              {removeImage ? "Remover imagem (selecionado)" : "Remover imagem atual"}
+            </button>
           )}
         </div>
       </div>

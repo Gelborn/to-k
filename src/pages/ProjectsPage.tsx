@@ -9,7 +9,9 @@ import { supabase } from '../lib/supabase';
 type DbProject = {
   id: string;
   name: string;
-  icon: string | null;
+  icon: string | null;           // legado
+  project_img: string | null;    // NOVO
+  description: string | null;    // NOVO
   type: 'profile_card' | 'exclusive_club' | 'simple_redirect';
   showroom_mode: boolean | null;
   destination_url: string | null;
@@ -29,7 +31,9 @@ type UiProject = {
   destination_url?: string | null;
   created_at: string;
   updated_at?: string | null;
-  icon?: string | null;
+  icon?: string | null;            // fallback
+  project_img?: string | null;     // NOVO
+  description?: string | null;     // NOVO
   owners: string[];
   customersCount?: number;
   lastActivityAt?: string | null;
@@ -83,7 +87,7 @@ export const ProjectsPage: React.FC = () => {
     setError(null);
     try {
       const baseSelect = `
-        id, name, icon, type, showroom_mode, destination_url, created_at, updated_at,
+        id, name, icon, project_img, description, type, showroom_mode, destination_url, created_at, updated_at,
         project_owners (
           profile_id,
           profiles ( display_name )
@@ -94,7 +98,7 @@ export const ProjectsPage: React.FC = () => {
         ? supabase
             .from('projects')
             .select(`
-              id, name, icon, type, showroom_mode, destination_url, created_at, updated_at,
+              id, name, icon, project_img, description, type, showroom_mode, destination_url, created_at, updated_at,
               project_owners!inner(
                 profile_id,
                 profiles(display_name)
@@ -131,7 +135,9 @@ export const ProjectsPage: React.FC = () => {
           destination_url: p.destination_url,
           created_at: p.created_at,
           updated_at: p.updated_at ?? null,
-          icon: p.icon,
+          icon: p.icon ?? null,                // fallback antigo
+          project_img: p.project_img ?? null,  // novo
+          description: p.description ?? null,  // novo
           owners: p.project_owners?.map(o => o.profiles?.display_name || o.profile_id) ?? [],
           customersCount: s?.customers_count ?? 0,
           lastActivityAt: s?.last_activity_at ?? null,
@@ -229,7 +235,7 @@ export const ProjectsPage: React.FC = () => {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-70 animate-pulse">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-56 rounded-2xl bg-white/50 dark:bg-zinc-900 border border-black/5" />
+            <div key={i} className="h-64 rounded-2xl bg-white/60 dark:bg-zinc-900/60 border border-black/5" />
           ))}
         </div>
       ) : projects.length === 0 ? (

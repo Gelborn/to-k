@@ -1,8 +1,11 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
-import { Sparkles, LayoutGrid, Check, ChevronDown, ExternalLink } from "lucide-react";
+import {
+  Sparkles, LayoutGrid, Check, ChevronDown, ExternalLink,
+  Image as ImageIcon, Link2, UploadCloud, Loader2
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { supabase } from "../../lib/supabase";
 
@@ -21,17 +24,28 @@ interface CreateProjectModalProps {
   ownerOptions?: OwnerOption[];
 }
 
+type ImgMode = "none" | "url" | "upload";
+
 export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   isOpen,
   onClose,
   onCreated,
   ownerOptions = [],
 }) => {
+  // campos existentes
   const [name, setName] = useState("");
   const [type, setType] = useState<ProjectType | "">("");
   const [showroomMode, setShowroomMode] = useState(false);
   const [ownerId, setOwnerId] = useState<string>("");
   const [destinationUrl, setDestinationUrl] = useState("");
+
+  // novos campos
+  const [description, setDescription] = useState("");
+  const [imgMode, setImgMode] = useState<ImgMode>("none");
+  const [projectImgUrl, setProjectImgUrl] = useState("");
+  const [projectImgFile, setProjectImgFile] = useState<File | null>(null);
+  const [projectImgPreview, setProjectImgPreview] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -48,11 +62,16 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     }
   };
 
+  // validação leve do campo imagem por URL (opcional)
+  const imgUrlOk =
+    imgMode !== "url" || projectImgUrl.trim() === "" || isValidUrl(projectImgUrl.trim());
+
   const isValid =
     name.trim().length >= 3 &&
     !!ownerId &&
     !!type &&
-    isValidUrl(destinationUrl.trim());
+    isValidUrl(destinationUrl.trim()) &&
+    imgUrlOk;
 
   const ownerHint = useMemo(() => {
     const o = ownerOptions.find((x) => x.id === ownerId);
@@ -79,9 +98,17 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     if (!url) e.destination_url = "A URL de destino é obrigatória.";
     else if (!isValidUrl(url)) e.destination_url = "Informe uma URL http(s) válida.";
 
+    if (imgMode === "url" && projectImgUrl.trim() && !isValidUrl(projectImgUrl.trim())) {
+      e.project_img = "Informe uma URL http(s) válida para a imagem.";
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
+
+  function revokePreview() {
+    if (projectImgPreview) URL.revokeObjectURL(projectImgPreview);
+  }
 
   const reset = () => {
     setName("");
@@ -89,8 +116,51 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     setShowroomMode(false);
     setOwnerId("");
     setDestinationUrl("");
+    setDescription("");
+    setImgMode("none");
+    setProjectImgUrl("");
+    setProjectImgFile(null);
+    revokePreview();
+    setProjectImgPreview(null);
     setErrors({});
   };
+
+  useEffect(() => {
+    return () => revokePreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function extFromMime(mime: string): string {
+    if (mime === "image/webp") return ".webp";
+    if (mime === "image/png") return ".png";
+    if (mime === "image/jpeg" || mime === "image/jpg") return ".jpg";
+    if (mime === "image/gif") return ".gif";
+    return "";
+  }
+
+  function onPickProjectImg(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    if (!f) {
+      revokePreview();
+      setProjectImgFile(null);
+      setProjectImgPreview(null);
+      return;
+    }
+    if (!f.type.startsWith("image/")) {
+      toast.error("Selecione uma imagem (PNG, JPG, WEBP...)");
+      return;
+    }
+    if (f.size > 10 * 1024 * 1024) {
+      toast.error("Imagem até 10MB.");
+      return;
+    }
+
+    revokePreview();
+    const url = URL.createObjectURL(f);
+    setProjectImgFile(f);
+    setProjectImgPreview(url);
+    clearFieldError("project_img");
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,13 +171,20 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
     setLoading(true);
     try {
-      const payload = {
+      // monta payload inicial
+      const payload: Record<string, any> = {
         name: name.trim(),
         type,
         showroom_mode: canShowShowroom ? showroomMode : false,
         owner_id: ownerId,
         destination_url: destinationUrl.trim(),
+        description: description.trim() || null,
       };
+
+      // se for URL de imagem e válido, já envia junto
+      if (imgMode === "url" && projectImgUrl.trim() && isValidUrl(projectImgUrl.trim())) {
+        payload.project_img = projectImgUrl.trim();
+      }
 
       const { data, error } = await supabase.functions.invoke("admin_create_project", {
         body: payload,
@@ -149,8 +226,41 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         throw error; // garante o finally
       }
 
+      const projectId: string = data?.project_id ?? "";
+
+      // caso tenha escolhido upload, faz o upload e atualiza o project_img
+      if (imgMode === "upload" && projectImgFile && projectId) {
+        try {
+          const ext =
+            extFromMime(projectImgFile.type) ||
+            (projectImgFile.name.match(/\.[a-z0-9]+$/i)?.[0] ?? ".jpg");
+
+          // usa o MESMO bucket público dos assets
+          const objectPath = `${projectId}/project-cover${ext}`;
+          const up = await supabase.storage
+            .from("asset-images")
+            .upload(objectPath, projectImgFile, { upsert: true });
+
+          if (up.error) throw new Error(`Falha ao subir imagem: ${up.error.message}`);
+
+          const { data: pub } = supabase.storage.from("asset-images").getPublicUrl(objectPath);
+          const publicUrl = pub?.publicUrl ?? null;
+
+          if (publicUrl) {
+            const upd = await supabase.from("projects").update({ project_img: publicUrl }).eq("id", projectId);
+            if (upd.error) {
+              console.error("update project_img error", upd.error);
+              toast.error("Projeto criado, mas houve falha ao gravar a imagem.");
+            }
+          }
+        } catch (imgErr: any) {
+          console.error("upload project cover failed", imgErr);
+          toast.error(imgErr?.message ?? "Falha ao enviar a imagem do projeto.");
+        }
+      }
+
       toast.success("Projeto criado com sucesso!");
-      onCreated?.(data?.project_id ?? "");
+      onCreated?.(projectId);
       onClose();
       reset();
     } catch {
@@ -222,6 +332,25 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               {errors.ownerId && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{errors.ownerId}</p>}
               <p className="text-xs text-zinc-500 dark:text-zinc-500">Defina quem será o responsável pelo projeto.</p>
             </div>
+          </div>
+
+          {/* Descrição (opcional) */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+              Descrição (opcional)
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                clearFieldError("description");
+              }}
+              placeholder="Breve texto sobre o projeto."
+              rows={3}
+              className="w-full px-4 py-3 bg-white/70 dark:bg-zinc-900/50 backdrop-blur-sm border
+                         border-zinc-200/70 dark:border-zinc-700/50 rounded-xl text-zinc-900 dark:text-zinc-100
+                         placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition"
+            />
           </div>
 
           {/* URL de destino */}
@@ -346,6 +475,106 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
             {errors.type && <p className="text-xs text-red-600 dark:text-red-400">{errors.type}</p>}
           </fieldset>
 
+          {/* Imagem do projeto (opcional) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+                Imagem do projeto (opcional)
+              </label>
+              {/* pill switch */}
+              <div className="inline-flex rounded-xl border border-zinc-200 dark:border-zinc-700/50 overflow-hidden">
+                {[
+                  { key: "none", label: "Nenhuma" },
+                  { key: "url", label: "Link" },
+                  { key: "upload", label: "Upload" },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => {
+                      setImgMode(opt.key as ImgMode);
+                      if (opt.key !== "upload") {
+                        // limpar file se sair do upload
+                        revokePreview();
+                        setProjectImgFile(null);
+                        setProjectImgPreview(null);
+                      }
+                      if (opt.key !== "url") setProjectImgUrl("");
+                      clearFieldError("project_img");
+                    }}
+                    className={`px-3 py-1.5 text-xs font-medium transition
+                      ${imgMode === opt.key
+                        ? "bg-blue-600 text-white"
+                        : "bg-white/70 dark:bg-zinc-900/40 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* URL */}
+            {imgMode === "url" && (
+              <Input
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <Link2 className="w-4 h-4 text-zinc-500" />
+                    Link da imagem
+                  </span>
+                }
+                value={projectImgUrl}
+                onChange={(e) => {
+                  setProjectImgUrl(e.target.value);
+                  clearFieldError("project_img");
+                }}
+                placeholder="https://cdn.exemplo.com/cover.jpg"
+                error={errors.project_img}
+                autoComplete="off"
+              />
+            )}
+
+            {/* Upload */}
+            {imgMode === "upload" && (
+              <div className="space-y-2">
+                {projectImgPreview ? (
+                  <div className="relative">
+                    <img
+                      src={projectImgPreview}
+                      alt="Pré-visualização"
+                      className="w-full h-44 object-cover rounded-xl border border-zinc-200 dark:border-zinc-700/50"
+                    />
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-xs text-zinc-500">
+                        {projectImgFile?.name} ({Math.round((projectImgFile?.size ?? 0) / 1024)} KB)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          revokePreview();
+                          setProjectImgFile(null);
+                          setProjectImgPreview(null);
+                        }}
+                        className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        Remover imagem
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="w-full flex flex-col items-center justify-center px-6 py-8 border-2 border-dashed rounded-xl cursor-pointer border-zinc-300 dark:border-zinc-700/50 hover:border-blue-400 dark:hover:border-blue-500/60 transition-colors">
+                    <input type="file" accept="image/*" className="hidden" onChange={onPickProjectImg} />
+                    <UploadCloud className="w-8 h-8 text-zinc-400 mb-2" />
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">Clique para selecionar uma imagem</span>
+                    <span className="text-xs text-zinc-500 mt-1">PNG, JPG, WEBP até 10MB</span>
+                  </label>
+                )}
+                {errors.project_img && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">{errors.project_img}</p>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Showroom (somente para hub de conteúdo) */}
           {canShowShowroom && (
             <div className="rounded-xl border p-4 border-zinc-200 dark:border-zinc-700/50 bg-zinc-50 dark:bg-zinc-800/40">
@@ -386,7 +615,14 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 Cancelar
               </Button>
               <Button type="submit" disabled={!isValid || loading}>
-                {loading ? "Criando..." : "Criar projeto"}
+                {loading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Criando…
+                  </span>
+                ) : (
+                  "Criar projeto"
+                )}
               </Button>
             </div>
           </div>
